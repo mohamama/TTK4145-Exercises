@@ -49,8 +49,7 @@ When you start working on the project, you may also want to set up a build syste
  - What kinds of problems motivates the need for concurrent execution? (Or phrased differently: What problems do concurrency help in solving?)
  - Does creating concurrent programs make the programmer's life easier? Harder? Maybe both? (Come back to this after you have worked on part 4 of this exercise)
 
- <!-- -->
-
+<!-- -->
  - What are the differences between processes, threads, green threads, and coroutines?
  - Which one of these do `pthread_create()` (C/POSIX), `threading.Thread()` (Python), `go` (Go) create?
  - How does pythons Global Interpreter Lock (GIL) influence the way a python Thread behaves?
