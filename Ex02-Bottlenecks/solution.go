@@ -9,23 +9,38 @@ import (
     "time"
 )
 
-var i int = 0
+var (
+i int = 0
+c1, c2 chan int
+)
+
+func numberMaster() {
+	for {
+		select {
+			case <- c1:
+				i++
+			case <- c2:
+				i--
+		}
+	}
+}
 
 func incrementGoroutine() {
     for count := 0; count < 1000000; count++ {
-	i++
+	c1 <- 1
     }
 }
 
 func decrementGoroutine() {
     for count := 0; count < 1000000; count++ {
-	i--
+	c2 <- 1
     }
 }
 
 func main() {
     runtime.GOMAXPROCS(runtime.NumCPU())    // I guess this is a hint to what GOMAXPROCS does...
                                             // Try doing the exercise both with and without it!
+    go numberMaster()
     go incrementGoroutine()                      // This spawns someGoroutine() as a goroutine
     go decrementGoroutine()                      // This spawns someGoroutine() as a goroutine
 
