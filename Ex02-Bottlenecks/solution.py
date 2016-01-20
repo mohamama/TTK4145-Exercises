@@ -1,16 +1,20 @@
-from threading import Thread
-
+import threading
 i = 0
+lock= threading.Lock()
 
 def plusThread():
     global i
     for _ in range(1000000):
-        i+=1
+        lock.acquire()
+	i+=1
+	lock.release()
 
 def minusThread():
     global i
     for _ in range(1000000):
+	lock.acquire()
         i-=1
+	lock.release()
 
 # Potentially useful thing:
 #   In Python you "import" a global variable, instead of "export"ing it when you declare it
@@ -19,8 +23,8 @@ def minusThread():
 
 def main():
     global i
-    threadP = Thread(target = plusThread, args = (),)
-    threadM = Thread(target = minusThread, args = (),)
+    threadP = threading.Thread(target = plusThread, args = (),)
+    threadM = threading.Thread(target = minusThread, args = (),)
     threadP.start()
     threadM.start()
     threadP.join()
