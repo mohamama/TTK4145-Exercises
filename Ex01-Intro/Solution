@@ -1,0 +1,8 @@
+3: concurrency and parallellism
+===============================
+*Concurrency is when multiple threads/processes are running "in parallell" (though not necessarily at exactly the same time, for example time-sharing one processor).
+Parallellism is when multiple threads are running simultaneously (on multiple cores).
+*Machines have become increasingly multicore in the past decade because we are at a point where it's not practical to keep increasing clock frequency, so instead manufacturers are adding more cores and parallellism to improve performance.
+*Concurrent execution is for example useful for processes that should wait for input and take action, instead of running constant loops checking conditions or blocking execution.
+*A little bit of both - it's pretty convenient to just start a new thread for listening for input, or running a scheduled task that should happen periodically; however things can get pretty ugly if not done properly, and it's very much harder to debug if multiple threads are able to manipulate the same memory areas.
+
