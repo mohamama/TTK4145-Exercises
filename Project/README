@@ -1,0 +1,29 @@
+Alternative languages
+
+Java:
+Pros/cons:
++ Apache ActiveMQ Artemis - https://activemq.apache.org/artemis/
+  + Robust - supports persistent messages
+  + Supports clustering and automatic discovery of new nodes/handling of lost nodes
+  + Fast - low latency and high throughput
+  + I already know how to use it
+  - None that I'm aware of so far
+
+C++:
+Pros/cons:
++ Known language
++ An ActiveMQ implementation/library exists - http://activemq.apache.org/cms/
+  - Needs to connect to existing ActiveMQ (can't be fully embedded without external dependencies)
+  - Have not yet used/tested this implementation
+
+Go:
+Pros/cons:
++ Channels
++ Made for multithreading and networking
+- No (very limited) experience with it so far
+- No ActiveMQ, will need to implement our own networking module
+
+PHP:
+Pros/cons:
++ Because we were told not to use it (Aka BFUTW)
+- Basically everything else
