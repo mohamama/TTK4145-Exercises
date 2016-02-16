@@ -15,7 +15,7 @@ You will need some form of communication between the primary and the backup. Som
  - Controlled shared memory: The system functions [`shmget()` and `shmat()`](http://pubs.opengroup.org/onlinepubs/7990989775/xsh/sysshm.h.html) let processes share memory.
 
 You will also need to spawn the backup somehow. There should be a way to spawn processes or run shell commands in the standard library of your language of choice. The name of the terminal window is OS-dependent:
- - Ubuntu: `gnome-terminal -e ["commands"]`
+ - Ubuntu: `gnome-terminal -x ["commands"]`
  - Windows: `start "title" [program_name]`. Note that you _must_ specify a title
  - OSX: `osascript -e 'tell app "Terminal" to do script ["terminal command"]'`
 
