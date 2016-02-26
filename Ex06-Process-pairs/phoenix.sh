@@ -1,7 +1,7 @@
 #!/bin/bash
 
+# Config parameters
 DELAY=1
-
 # You need to make sure that this directory exists and that you have write access
 STATEFILE=/var/run/phoenix/state
 COMPFILE=/var/run/phoenix/backup$(date +%s)
@@ -13,7 +13,7 @@ sleep $(( 2*DELAY ))
 # First, check for output file and its age - while the main process is alive, wait
 while [ $STATEFILE -nt $COMPFILE ];do
 	touch $COMPFILE
-	sleep $DELAY
+	sleep $(( 2*DELAY ))
 done
 
 # If nothing is found when checking N seconds after start, assume master and: spawn backup process, write to file (start where file left off
