@@ -21,6 +21,7 @@ procedure exercise7 is
             ------------------------------------------
             -- PART 3: Complete the exit protocol here
             ------------------------------------------
+
 	    Aborted := True; --TODO
         end Finished;
 
@@ -70,6 +71,11 @@ procedure exercise7 is
             ---------------------------------------
             -- PART 2: Do the transaction work here             
             ---------------------------------------
+			exception
+				when Count_Failed =>
+					Manager.Signal_Abort;
+					Ada.Text_IO.Put("Exception : ");
+					Finished;
             
             if Manager.Commit = True then
                 Put_Line ("  Worker" & Integer'Image(Initial) & " comitting" & Integer'Image(Num));
@@ -79,7 +85,8 @@ procedure exercise7 is
                              " to" & Integer'Image(Prev));
                 -------------------------------------------
                 -- PART 2: Roll back to previous value here
-                -------------------------------------------
+                ------------------------------------------
+				Num:= Prev;
             end if;
 
             Prev := Num;
