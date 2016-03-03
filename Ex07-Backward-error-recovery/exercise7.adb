@@ -71,11 +71,6 @@ procedure exercise7 is
             ---------------------------------------
             -- PART 2: Do the transaction work here             
             ---------------------------------------
-			exception
-				when Count_Failed =>
-					Manager.Signal_Abort;
-					Ada.Text_IO.Put("Exception : ");
-					Finished;
             
             if Manager.Commit = True then
                 Put_Line ("  Worker" & Integer'Image(Initial) & " comitting" & Integer'Image(Num));
@@ -93,6 +88,11 @@ procedure exercise7 is
             delay 0.5;
 
         end loop;
+	exception
+		when Count_Failed =>
+			Manager.Signal_Abort;
+			Ada.Text_IO.Put("Exception : ");
+			Manager.Finished;
     end Transaction_Worker;
 
     Manager : aliased Transaction_Manager (3);
