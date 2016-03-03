@@ -44,6 +44,12 @@ procedure exercise7 is
         -------------------------------------------
         -- PART 1: Create the transaction work here
         -------------------------------------------
+		if Random(Gen) < Error_Rate then
+			raise Count_Failed;
+		end if;
+		delay Duration (Random(Gen)*4);
+		x := x + 10;
+		return x;
     end Unreliable_Slow_Add;
 
 
