@@ -21,6 +21,7 @@ procedure exercise7 is
             ------------------------------------------
             -- PART 3: Complete the exit protocol here
             ------------------------------------------
+	    Aborted := True; --TODO
         end Finished;
 
         procedure Signal_Abort is
@@ -47,9 +48,8 @@ procedure exercise7 is
 		if Random(Gen) < Error_Rate then
 			raise Count_Failed;
 		end if;
-		delay Duration (Random(Gen)*4);
-		x := x + 10;
-		return x;
+		delay Duration (Random(Gen)*4.0);
+		return x + 10;
     end Unreliable_Slow_Add;
 
 
