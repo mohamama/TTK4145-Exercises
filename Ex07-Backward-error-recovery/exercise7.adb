@@ -23,6 +23,8 @@ procedure exercise7 is
             ------------------------------------------
 		if Aborted = True then
 			Should_Commit := False;
+		else
+			Should_Commit := True;
 		end if;
 
 		Finished_Gate_Open := True;	-- Open the gate for the rest of the workers
@@ -31,7 +33,6 @@ procedure exercise7 is
 			-- Reset values
 			Aborted 		:= False;
 			Finished_Gate_Open 	:= False;
-			Should_Commit 		:= True;
 		end if;
 
         end Finished;
@@ -82,10 +83,14 @@ procedure exercise7 is
             ---------------------------------------
             -- PART 2: Do the transaction work here             
             ---------------------------------------
-            
+            begin
 	    Num := Unreliable_Slow_Add (Num);
+	    exception
+		    when Count_Failed =>
+			    Manager.Signal_Abort;
+			    Put_Line("Exception in worker" & Integer'Image(Initial));
+	    end;
 	    Manager.Finished;
-
             if Manager.Commit = True then
                 Put_Line ("  Worker" & Integer'Image(Initial) & " comitting" & Integer'Image(Num));
             else
@@ -102,11 +107,6 @@ procedure exercise7 is
             delay 0.5;
 
         end loop;
-	exception
-		when Count_Failed =>
-			Manager.Signal_Abort;
-			Ada.Text_IO.Put_Line("Exception in worker" & Integer'Image(Initial));
-			Manager.Finished;
 
     end Transaction_Worker;
 
