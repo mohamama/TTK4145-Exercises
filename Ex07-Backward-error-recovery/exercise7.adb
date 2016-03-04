@@ -21,8 +21,19 @@ procedure exercise7 is
             ------------------------------------------
             -- PART 3: Complete the exit protocol here
             ------------------------------------------
+		if Aborted = True then
+			Should_Commit := False;
+		end if;
 
-	    Aborted := True; --TODO
+		Finished_Gate_Open := True;	-- Open the gate for the rest of the workers
+
+		if Finished'Count = 0 then	-- Clean up and exit
+			-- Reset values
+			Aborted 		:= False;
+			Finished_Gate_Open 	:= False;
+			Should_Commit 		:= True;
+		end if;
+
         end Finished;
 
         procedure Signal_Abort is
@@ -72,6 +83,9 @@ procedure exercise7 is
             -- PART 2: Do the transaction work here             
             ---------------------------------------
             
+	    Num := Unreliable_Slow_Add (Num);
+	    Manager.Finished;
+
             if Manager.Commit = True then
                 Put_Line ("  Worker" & Integer'Image(Initial) & " comitting" & Integer'Image(Num));
             else
@@ -91,8 +105,9 @@ procedure exercise7 is
 	exception
 		when Count_Failed =>
 			Manager.Signal_Abort;
-			Ada.Text_IO.Put("Exception : ");
+			Ada.Text_IO.Put_Line("Exception in worker" & Integer'Image(Initial));
 			Manager.Finished;
+
     end Transaction_Worker;
 
     Manager : aliased Transaction_Manager (3);
