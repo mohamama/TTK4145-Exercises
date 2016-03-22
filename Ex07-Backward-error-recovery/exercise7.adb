@@ -21,6 +21,20 @@ procedure exercise7 is
             ------------------------------------------
             -- PART 3: Complete the exit protocol here
             ------------------------------------------
+		if Aborted = True then
+			Should_Commit := False;
+		else
+			Should_Commit := True;
+		end if;
+
+		Finished_Gate_Open := True;	-- Open the gate for the rest of the workers
+
+		if Finished'Count = 0 then	-- Clean up and exit
+			-- Reset values
+			Aborted 		:= False;
+			Finished_Gate_Open 	:= False;
+		end if;
+
         end Finished;
 
         procedure Signal_Abort is
@@ -44,6 +58,11 @@ procedure exercise7 is
         -------------------------------------------
         -- PART 1: Create the transaction work here
         -------------------------------------------
+		if Random(Gen) < Error_Rate then
+			raise Count_Failed;
+		end if;
+		delay Duration (Random(Gen)*4.0);
+		return x + 10;
     end Unreliable_Slow_Add;
 
 
@@ -64,7 +83,14 @@ procedure exercise7 is
             ---------------------------------------
             -- PART 2: Do the transaction work here             
             ---------------------------------------
-            
+            begin
+	    Num := Unreliable_Slow_Add (Num);
+	    exception
+		    when Count_Failed =>
+			    Manager.Signal_Abort;
+			    Put_Line("Exception in worker" & Integer'Image(Initial));
+	    end;
+	    Manager.Finished;
             if Manager.Commit = True then
                 Put_Line ("  Worker" & Integer'Image(Initial) & " comitting" & Integer'Image(Num));
             else
@@ -73,13 +99,15 @@ procedure exercise7 is
                              " to" & Integer'Image(Prev));
                 -------------------------------------------
                 -- PART 2: Roll back to previous value here
-                -------------------------------------------
+                ------------------------------------------
+				Num:= Prev;
             end if;
 
             Prev := Num;
             delay 0.5;
 
         end loop;
+
     end Transaction_Worker;
 
     Manager : aliased Transaction_Manager (3);
