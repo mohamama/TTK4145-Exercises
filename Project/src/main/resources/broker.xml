@@ -22,60 +22,67 @@ under the License.
                xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                xsi:schemaLocation="urn:activemq https://raw.githubusercontent.com/apache/activemq-artemis/master/artemis-server/src/main/resources/schema/artemis-configuration.xsd">
 
-    <jms xmlns="urn:activemq:jms">
+    <!--<jms xmlns="urn:activemq:jms">-->
         <!--the topic used by the example-->
-        <topic name="exampleTopic"/>
-    </jms>
+        <!--<topic name="exampleTopic"/>-->
+    <!--</jms>-->
+    <!--<security-enabled>false</security-enabled>-->
+
 
     <core xmlns="urn:activemq:core">
+        <!--TODO: configure security (user/password)-->
+        <security-enabled>false</security-enabled>
+        <bindings-directory>./data/bindings</bindings-directory>
 
-    <bindings-directory>./data/bindings</bindings-directory>
+        <journal-directory>./data/journal</journal-directory>
 
-    <journal-directory>./data/journal</journal-directory>
+        <large-messages-directory>./data/largemessages</large-messages-directory>
 
-    <large-messages-directory>./data/largemessages</large-messages-directory>
+        <paging-directory>./data/paging</paging-directory>
 
-    <paging-directory>./data/paging</paging-directory>
+        <!-- Connectors -->
+        <connectors>
+            <connector name="netty-connector">tcp://localhost:61617</connector>
+        </connectors>
 
-    <!-- Connectors -->
-    <connectors>
-        <connector name="netty-connector">tcp://localhost:61617</connector>
-    </connectors>
+        <!-- Acceptors -->
+        <acceptors>
+            <acceptor name="netty-acceptor">tcp://localhost:61617</acceptor>
+        </acceptors>
 
-    <!-- Acceptors -->
-    <acceptors>
-        <acceptor name="netty-acceptor">tcp://localhost:61617</acceptor>
-    </acceptors>
+        <!-- Clustering configuration -->
+        <cluster-user>eleCluster</cluster-user>
+        <cluster-password>superSecret</cluster-password>
+        <broadcast-groups>
+            <broadcast-group name="my-broadcast-group">
+                <!--TODO: set correct address-->
+                <group-address>${udp-address:231.7.7.7}</group-address>
+                <group-port>9876</group-port>
+                <broadcast-period>100</broadcast-period>
+                <connector-ref>netty-connector</connector-ref>
+            </broadcast-group>
+        </broadcast-groups>
 
-    <!-- Clustering configuration -->
-    <broadcast-groups>
-        <broadcast-group name="my-broadcast-group">
-            <group-address>${udp-address:231.7.7.7}</group-address>
-            <group-port>9876</group-port>
-            <broadcast-period>100</broadcast-period>
-            <connector-ref>netty-connector</connector-ref>
-        </broadcast-group>
-    </broadcast-groups>
+        <discovery-groups>
+            <discovery-group name="my-discovery-group">
+                <!--TODO: set correct address-->
+                <group-address>${udp-address:231.7.7.7}</group-address>
+                <group-port>9876</group-port>
+                <refresh-timeout>10000</refresh-timeout>
+            </discovery-group>
+        </discovery-groups>
 
-    <discovery-groups>
-        <discovery-group name="my-discovery-group">
-            <group-address>${udp-address:231.7.7.7}</group-address>
-            <group-port>9876</group-port>
-            <refresh-timeout>10000</refresh-timeout>
-        </discovery-group>
-    </discovery-groups>
-
-    <cluster-connections>
-        <cluster-connection name="my-cluster">
-            <address>jms</address>
-            <connector-ref>netty-connector</connector-ref>
-            <retry-interval>500</retry-interval>
-            <use-duplicate-detection>true</use-duplicate-detection>
-            <message-load-balancing>STRICT</message-load-balancing>
-            <max-hops>1</max-hops>
-            <discovery-group-ref discovery-group-name="my-discovery-group"/>
-        </cluster-connection>
-    </cluster-connections>
+        <cluster-connections>
+            <cluster-connection name="my-cluster">
+                <address>jms</address>
+                <connector-ref>netty-connector</connector-ref>
+                <retry-interval>500</retry-interval>
+                <use-duplicate-detection>true</use-duplicate-detection>
+                <message-load-balancing>STRICT</message-load-balancing>
+                <max-hops>1</max-hops>
+                <discovery-group-ref discovery-group-name="my-discovery-group"/>
+            </cluster-connection>
+        </cluster-connections>
 
 
     <!--<core xmlns="urn:activemq:core">-->

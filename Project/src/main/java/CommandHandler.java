@@ -1,7 +1,13 @@
+import org.apache.activemq.artemis.api.core.ActiveMQException;
+import org.apache.activemq.artemis.api.core.client.ClientMessage;
+import org.apache.activemq.artemis.api.core.client.MessageHandler;
+
 /**
+ * Class to handle received messages and further dispatch the necessary commands.
+ *
  * Created by tovine on 3/23/16.
  */
-public class CommandHandler {
+class CommandHandler implements MessageHandler {
     /*
      * Algorithm outline:
      * ------------------
@@ -19,4 +25,15 @@ public class CommandHandler {
      *    4.2: If that elevator goes offline, the job is redistributed among the remaining ones in the same manner as before
      *  5. Finally once the job is done, the elevator who completed it broadcasts to the others that the order is processed and can be safely deleted from the system
      */
+
+    public void onMessage(ClientMessage clientMessage) {
+        System.out.println("Got message: " + clientMessage.toString());
+        System.out.println("Message content: " + clientMessage.getStringProperty(Networking.MESSAGE_FIELD_TEXT));
+        try {
+            clientMessage.acknowledge();
+        } catch (ActiveMQException e) {
+            System.out.println("An error occurred while acknowledging message:");
+            e.printStackTrace();
+        }
+    }
 }
