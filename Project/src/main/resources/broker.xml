@@ -55,8 +55,8 @@ under the License.
         <cluster-password>superSecret</cluster-password>
         <broadcast-groups>
             <broadcast-group name="my-broadcast-group">
-                <!--TODO: set correct address-->
-                <group-address>${udp-address:231.7.7.7}</group-address>
+                <!--224.0.0.1 is the address to broadcast to all hosts on the network segment-->
+                <group-address>${udp-address:224.0.0.1}</group-address>
                 <group-port>9876</group-port>
                 <broadcast-period>100</broadcast-period>
                 <connector-ref>netty-connector</connector-ref>
@@ -65,8 +65,7 @@ under the License.
 
         <discovery-groups>
             <discovery-group name="my-discovery-group">
-                <!--TODO: set correct address-->
-                <group-address>${udp-address:231.7.7.7}</group-address>
+                <group-address>${udp-address:224.0.0.1}</group-address>
                 <group-port>9876</group-port>
                 <refresh-timeout>10000</refresh-timeout>
             </discovery-group>
@@ -83,18 +82,5 @@ under the License.
                 <discovery-group-ref discovery-group-name="my-discovery-group"/>
             </cluster-connection>
         </cluster-connections>
-
-
-    <!--<core xmlns="urn:activemq:core">-->
-        <!--<broadcast-groups>-->
-            <!--<broadcast-group name="my-broadcast-group">-->
-                <!--<local-bind-address>172.16.9.3</local-bind-address>-->
-                <!--<local-bind-port>5432</local-bind-port>-->
-                <!--<group-address>231.7.7.7</group-address>-->
-                <!--<group-port>9876</group-port>-->
-                <!--<broadcast-period>2000</broadcast-period>-->
-                <!--<connector-ref connector-name="netty-connector"/>-->
-            <!--</broadcast-group>-->
-        <!--</broadcast-groups>-->
     </core>
 </configuration>
