@@ -1,4 +1,4 @@
-package no.ntnu.stud.torbjovn.elevator
+package no.ntnu.stud.torbjovn.elevator;
 
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.Message;
@@ -44,8 +44,6 @@ class Networking {
             if (messageProducer != null) messageProducer.close();
             if (messageConsumer != null) messageConsumer.close();
             if (artemisSession != null) {
-//                artemisSession.stop(); // TODO: this step may be unnecessary
-                artemisSession.deleteQueue(QUEUE_NAME); // TODO: does this only work locally or across the cluster?
                 artemisSession.close();
                 artemisSession.getSessionFactory().close();
                 artemisSession.getSessionFactory().getServerLocator().close();
@@ -68,12 +66,16 @@ class Networking {
             // FIXME: create user/pass combination and use it
             ClientSessionFactory nettyFactory =  ActiveMQClient.createServerLocator(true, new TransportConfiguration(NettyConnectorFactory.class.getName(), connectionParams))
                     .createSessionFactory();
+            // TODO: uncomment once user is created in artemis broker configuration
+            // Create a session with the supplied user name and password, the rest is left to the default values when calling createSession() without parameters
+//            artemisSession = nettyFactory.createSession(MESSAGING_USER, MESSAGING_PASS, false, true, true,
+//                    nettyFactory.getServerLocator().isPreAcknowledge(), nettyFactory.getServerLocator().getAckBatchSize());
             artemisSession = nettyFactory.createSession();
             if (!artemisSession.queueQuery(SimpleString.toSimpleString(QUEUE_NAME)).isExists())
-                artemisSession.createQueue(QUEUE_NAME, QUEUE_NAME, true); // (String address, String queue, boolean durable)
+                artemisSession.createQueue(QUEUE_NAME, QUEUE_NAME, true); // (String address, String queue, boolean durable) // TODO: does this need to be durable?
             messageConsumer = artemisSession.createConsumer(QUEUE_NAME);
             messageProducer = artemisSession.createProducer(QUEUE_NAME);
-            messageConsumer.setMessageHandler(new CommandHandler()); // TODO: verify correctness
+            messageConsumer.setMessageHandler(new CommandHandler());
             artemisSession.start();
         } catch (Exception e) {
             System.out.println("Failed to start a client connection, stack trace:");
