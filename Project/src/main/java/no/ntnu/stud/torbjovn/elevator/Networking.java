@@ -1,5 +1,8 @@
+package no.ntnu.stud.torbjovn.elevator
+
 import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.Message;
+import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.TransportConfiguration;
 import org.apache.activemq.artemis.api.core.client.*;
 import org.apache.activemq.artemis.core.remoting.impl.netty.NettyConnectorFactory;
@@ -41,9 +44,11 @@ class Networking {
             if (messageProducer != null) messageProducer.close();
             if (messageConsumer != null) messageConsumer.close();
             if (artemisSession != null) {
-                artemisSession.stop(); // TODO: this step may be unnecessary
+//                artemisSession.stop(); // TODO: this step may be unnecessary
                 artemisSession.deleteQueue(QUEUE_NAME); // TODO: does this only work locally or across the cluster?
                 artemisSession.close();
+                artemisSession.getSessionFactory().close();
+                artemisSession.getSessionFactory().getServerLocator().close();
             }
             embeddedServer.stop();
             System.out.println("Stopping server");
@@ -64,7 +69,8 @@ class Networking {
             ClientSessionFactory nettyFactory =  ActiveMQClient.createServerLocator(true, new TransportConfiguration(NettyConnectorFactory.class.getName(), connectionParams))
                     .createSessionFactory();
             artemisSession = nettyFactory.createSession();
-            artemisSession.createQueue(QUEUE_NAME, QUEUE_NAME, true); // (String address, String queue, boolean durable)
+            if (!artemisSession.queueQuery(SimpleString.toSimpleString(QUEUE_NAME)).isExists())
+                artemisSession.createQueue(QUEUE_NAME, QUEUE_NAME, true); // (String address, String queue, boolean durable)
             messageConsumer = artemisSession.createConsumer(QUEUE_NAME);
             messageProducer = artemisSession.createProducer(QUEUE_NAME);
             messageConsumer.setMessageHandler(new CommandHandler()); // TODO: verify correctness
@@ -95,16 +101,20 @@ class Networking {
         try {
             startServer();
             startClient();
+            Runtime.getRuntime().addShutdownHook(new Thread() {
+                @Override
+                public void run() {
+                    System.out.println("Shutting down");
+                    try {
+                        stopServer();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
             sendMessage(createMessage("Hello world!"));
         } catch (Exception e) {
 //            e.printStackTrace();
-        } finally {
-            try {
-                Thread.sleep(1000);
-                stopServer();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
         }
     }
 }
