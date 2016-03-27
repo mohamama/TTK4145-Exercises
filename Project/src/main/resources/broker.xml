@@ -47,8 +47,35 @@ under the License.
 
         <!-- Acceptors -->
         <acceptors>
-            <acceptor name="netty-acceptor">tcp://localhost:61617</acceptor>
+            <!-- Accept connections to all addresses that reach us -->
+            <acceptor name="netty-acceptor">tcp://0.0.0.0:61617</acceptor>
         </acceptors>
+
+        <queues>
+            <queue name="elevatorBridgeQueue">
+                <address>elevatorQueue</address>
+                <durable>true</durable>
+            </queue>
+        </queues>
+        <ha-policy>
+            <replication>
+                <colocated>
+                    <!--<request-backup>true</request-backup>-->
+                    <master>
+                        <check-for-live-server>true</check-for-live-server>
+                    </master>
+                    <slave>
+                        <allow-failback>true</allow-failback>
+                    </slave>
+                </colocated>
+            </replication>
+        </ha-policy>
+
+        <address-settings>
+            <address-setting match="#">
+                <redistribution-delay>100</redistribution-delay>
+            </address-setting>
+        </address-settings>
 
         <!-- Clustering configuration -->
         <cluster-user>eleCluster</cluster-user>
@@ -79,6 +106,7 @@ under the License.
                 <use-duplicate-detection>true</use-duplicate-detection>
                 <message-load-balancing>STRICT</message-load-balancing>
                 <max-hops>1</max-hops>
+                <call-failover-timeout>5000</call-failover-timeout>
                 <discovery-group-ref discovery-group-name="my-discovery-group"/>
             </cluster-connection>
         </cluster-connections>
