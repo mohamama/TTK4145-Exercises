@@ -20,13 +20,13 @@ public class Elevator {
     }
 
     private native void elev_init();
-//    private native void elev_set_motor_direction(elev_motor_direction_t dirn);
-//    private native void elev_set_button_lamp(elev_button_type_t button, int floor, int value);
+    private native void elev_set_motor_direction(int dirn);
+    private native void elev_set_button_lamp(int button, int floor, int value);
     private native void elev_set_floor_indicator(int floor);
     private native void elev_set_door_open_lamp(int value);
     private native void elev_set_stop_lamp(int value);
 
-//    private native int elev_get_button_signal(elev_button_type_t button, int floor);
+    private native int elev_get_button_signal(int button, int floor);
     private native int elev_get_floor_sensor_signal();
     private native int elev_get_stop_signal();
     private native int elev_get_obstruction_signal();

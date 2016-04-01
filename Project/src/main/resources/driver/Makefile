@@ -2,7 +2,7 @@
 CC = gcc
 
 # Compiler flags go here.
-CFLAGS = -std=c11 -g -Wall -Wextra
+CFLAGS = -std=c11 -g -Wall -Wextra -I"/usr/lib/jvm/default-java/include/"
 
 # Linker flags go here.
 LDFLAGS = -lcomedi -lm

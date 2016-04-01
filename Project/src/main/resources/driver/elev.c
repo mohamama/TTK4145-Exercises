@@ -44,7 +44,7 @@ void elev_init(void) {
 }
 
 
-void elev_set_motor_direction(elev_motor_direction_t dirn) {
+void elev_set_motor_direction(int dirn) {
     if (dirn == 0){
         io_write_analog(MOTOR, 0);
     } else if (dirn > 0) {
@@ -57,7 +57,7 @@ void elev_set_motor_direction(elev_motor_direction_t dirn) {
 }
 
 
-void elev_set_button_lamp(elev_button_type_t button, int floor, int value) {
+void elev_set_button_lamp(int button, int floor, int value) {
     assert(floor >= 0);
     assert(floor < N_FLOORS);
     assert(button >= 0);
@@ -109,7 +109,7 @@ void elev_set_stop_lamp(int value) {
 
 
 
-int elev_get_button_signal(elev_button_type_t button, int floor) {
+int elev_get_button_signal(int button, int floor) {
     assert(floor >= 0);
     assert(floor < N_FLOORS);
     assert(button >= 0);
