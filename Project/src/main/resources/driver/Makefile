@@ -1,36 +1,11 @@
-# Which compiler to use
-CC = gcc
+sharedlib : io.o elev.o
+	gcc --shared -Wl,-soname,elevator.so -lcomedi -lm -o elevator.so io.o elev.o 
 
-# Compiler flags go here.
-CFLAGS = -std=c11 -g -Wall -Wextra -I"/usr/lib/jvm/default-java/include/"
+io.o : io.h io.c channels.h
+	gcc -std=c11 -fPIC -g -c -Wall io.c
 
-# Linker flags go here.
-LDFLAGS = -lcomedi -lm
+elev.o : elev.c elev.h io.c io.h channels.h no_ntnu_stud_torbjovn_elevator_Elevator.h 
+	gcc -std=c11 -I"/usr/lib/jvm/default-java/include/" -fPIC -g -c -Wall elev.c
 
-# list of sources
-ELEVSRC = elev.c io.c main.c
-
-# program executable file name.
-TARGET = elevator
-
-# top-level rule, to compile everything.
-all: $(TARGET)
-
-# Define all object files.
-ELEVOBJ = $(ELEVSRC:.c=.o)
-
-# rule to link the program
-$(TARGET): $(ELEVOBJ)
-	$(CC) $^ -o $@ $(LDFLAGS)
-
-# Compile: create object files from C source files.
-%.o : %.c
-	$(CC) $(CFLAGS) -c $< -o $@ 
-
-# rule for cleaning re-compilable files.
-clean:
-	rm -f $(TARGET) $(ELEVOBJ)
-
-rebuild:	clean all
-
-.PHONY: all rebuild clean
+clean :
+	rm -f *.o *.so
