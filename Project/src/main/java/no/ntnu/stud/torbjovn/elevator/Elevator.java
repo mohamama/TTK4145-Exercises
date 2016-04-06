@@ -1,5 +1,9 @@
 package no.ntnu.stud.torbjovn.elevator;
 
+import cz.adamh.utils.NativeUtils;
+
+import java.io.IOException;
+
 /**
  * Created by marje on 22.03.2016.
  */
@@ -8,7 +12,12 @@ public class Elevator {
     private int direction = 0; // negative numbers =down; positive numbers = up; zero= stationary;
 
     static {
-        System.loadLibrary("elev");
+        try {
+            NativeUtils.loadLibraryFromJar("/driver/elevator.so");
+        } catch (IOException e) {
+            System.out.println("ERROR: unable to read library file: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     public int getCurrentFloor(){
