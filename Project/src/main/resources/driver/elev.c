@@ -28,9 +28,10 @@ static const int button_channel_matrix[N_FLOORS][N_BUTTONS] = {
 
 
 
-void elev_init(void) {
+bool elev_init() {
     int init_success = io_init();
-    assert(init_success && "Unable to initialize elevator hardware!");
+    if (!init_success) return false;
+//    assert(init_success && "Unable to initialize elevator hardware!");
 
     for (int f = 0; f < N_FLOORS; f++) {
         for (elev_button_type_t b = 0; b < N_BUTTONS; b++){
@@ -41,6 +42,7 @@ void elev_init(void) {
     elev_set_stop_lamp(0);
     elev_set_door_open_lamp(0);
     elev_set_floor_indicator(0);
+    return true;
 }
 
 
