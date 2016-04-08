@@ -3,9 +3,14 @@
 
 #include "elev.h"
 
+/* NOTE: the floor is returned as 1-indexed (0 is invalid), to reflect the "natural" floor numbering
+ * Class:       no_ntnu_stud_torbjovn_elevator_ELevator
+ * Method:      getCurrentFloor
+ * Signature:   ()I
+ */
 JNIEXPORT jint JNICALL Java_no_ntnu_stud_torbjovn_elevator_Elevator_getCurrentFloor
   (JNIEnv * env, jobject obj) {
-        return elev_get_floor_sensor_signal();
+        return elev_get_floor_sensor_signal() + 1;
   }
 
 /*
@@ -46,6 +51,16 @@ JNIEXPORT void JNICALL Java_no_ntnu_stud_torbjovn_elevator_Elevator_elev_1set_1m
 JNIEXPORT void JNICALL Java_no_ntnu_stud_torbjovn_elevator_Elevator_elev_1set_1button_1lamp
   (JNIEnv * env, jobject obj, jint button, jint floor, jint value) {
         elev_set_button_lamp(button, floor, value);
+  }
+
+/*
+ * Class:     no_ntnu_stud_torbjovn_elevator_Elevator
+ * Method:    elev_set_floor_indicator
+ * Signature: (I)V
+ */
+JNIEXPORT void JNICALL Java_no_ntnu_stud_torbjovn_elevator_Elevator_elev_1set_1floor_1indicator
+  (JNIEnv * env, jobject obj, jint floor) {
+        elev_set_floor_indicator(floor - 1); // Convert from 1-indexed to 0-indexed
   }
 
 /*

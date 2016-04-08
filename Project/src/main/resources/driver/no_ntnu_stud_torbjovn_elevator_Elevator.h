@@ -7,6 +7,20 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+#undef no_ntnu_stud_torbjovn_elevator_Elevator_MIN_PRIORITY
+#define no_ntnu_stud_torbjovn_elevator_Elevator_MIN_PRIORITY 1L
+#undef no_ntnu_stud_torbjovn_elevator_Elevator_NORM_PRIORITY
+#define no_ntnu_stud_torbjovn_elevator_Elevator_NORM_PRIORITY 5L
+#undef no_ntnu_stud_torbjovn_elevator_Elevator_MAX_PRIORITY
+#define no_ntnu_stud_torbjovn_elevator_Elevator_MAX_PRIORITY 10L
+#undef no_ntnu_stud_torbjovn_elevator_Elevator_NUM_FLOORS
+#define no_ntnu_stud_torbjovn_elevator_Elevator_NUM_FLOORS 4L
+#undef no_ntnu_stud_torbjovn_elevator_Elevator_DIR_UP
+#define no_ntnu_stud_torbjovn_elevator_Elevator_DIR_UP 1L
+#undef no_ntnu_stud_torbjovn_elevator_Elevator_DIR_DOWN
+#define no_ntnu_stud_torbjovn_elevator_Elevator_DIR_DOWN -1L
+#undef no_ntnu_stud_torbjovn_elevator_Elevator_DIR_STOP
+#define no_ntnu_stud_torbjovn_elevator_Elevator_DIR_STOP 0L
 /*
  * Class:     no_ntnu_stud_torbjovn_elevator_Elevator
  * Method:    getCurrentFloor
@@ -46,6 +60,14 @@ JNIEXPORT void JNICALL Java_no_ntnu_stud_torbjovn_elevator_Elevator_elev_1set_1m
  */
 JNIEXPORT void JNICALL Java_no_ntnu_stud_torbjovn_elevator_Elevator_elev_1set_1button_1lamp
   (JNIEnv *, jobject, jint, jint, jint);
+
+/*
+ * Class:     no_ntnu_stud_torbjovn_elevator_Elevator
+ * Method:    elev_set_floor_indicator
+ * Signature: (I)V
+ */
+JNIEXPORT void JNICALL Java_no_ntnu_stud_torbjovn_elevator_Elevator_elev_1set_1floor_1indicator
+  (JNIEnv *, jobject, jint);
 
 /*
  * Class:     no_ntnu_stud_torbjovn_elevator_Elevator
