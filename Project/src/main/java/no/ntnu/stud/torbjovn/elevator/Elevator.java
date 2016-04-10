@@ -125,10 +125,34 @@ public class Elevator {
      */
     private native void elev_set_floor_indicator(int floor);
 
-    // TODO: implement a driver for this (abstract it away and make asynchronous events for button presses)
-    public native boolean doorObstructed();
     private native void elev_set_door_open_lamp(int value);
     private native void elev_set_stop_lamp(int value);
-    private native int elev_get_button_signal(int button, int floor);
-    private native int elev_get_stop_signal();
+
+    private class InputListener extends Thread {
+        // TODO: implement a driver for this (abstract it away and make asynchronous events for button presses)
+        public native boolean doorObstructed();
+        public static final int NUM_BUTTONS = 3;
+        @Override
+        public void run() {
+            super.run();
+            while(true) {
+                /*
+                 TODO: Iterate through all buttons on all floors and check the state
+                 If a button is pressed (and it wasn't before), fire an event. For now, just mark it with a //TODO
+                 or something - implementation will be done later.
+
+                 Different actions should be performed, depending on which button was pressed:
+                     - Call buttons (outside the elevator - BUTTON_UP/DOWN_n in elev.c) should submit a command to the network
+                     - Command buttons (inside) can directly call the goToFloor() function with the target floor as argument
+                     - Stop button should stopElevator()
+
+                 You need to keep track of the last state of all buttons (you only want to fire the event handler once
+                 for each time the button is pressed)
+                  */
+            }
+        }
+
+        private native int elev_get_button_signal(int button, int floor);
+        private native int elev_get_stop_signal();
+    }
 }
