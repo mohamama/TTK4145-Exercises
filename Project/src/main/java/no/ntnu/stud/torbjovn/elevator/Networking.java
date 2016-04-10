@@ -123,8 +123,12 @@ class Networking {
         return true;
     }
 
-    public static Message createMessage(String msgString) {
+    public static Message createTextMessage(String msgString) {
         return artemisSession.createMessage(false).putStringProperty(MESSAGE_FIELD_TEXT, msgString);
+    }
+
+    public static Message createMessage() {
+        return artemisSession.createMessage(false);
     }
 
     public static void main(String[] args) {
