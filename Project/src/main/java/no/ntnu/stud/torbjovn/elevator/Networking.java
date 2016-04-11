@@ -28,6 +28,8 @@ class Networking {
     // Networking objects
     private static String queueName;
     private static EmbeddedActiveMQ embeddedServer = new EmbeddedActiveMQ();
+    private static ServerLocator serverLocator;
+    private static ClientSessionFactory nettyFactory;
     private static ClientSession artemisSession = null;
     private static ClientConsumer messageConsumer = null;
     private static ClientProducer messageProducer = null;
@@ -86,19 +88,18 @@ class Networking {
 //            UDPBroadcastEndpointFactory udpBroadcastEndpointFactory = new UDPBroadcastEndpointFactory();
 //            udpBroadcastEndpointFactory.setGroupAddress(GROUP_BROADCAST_ADDRESS).setGroupPort(GROUP_BROADCAST_PORT);
 //            discoveryGroupConfiguration.setBroadcastEndpointFactory(new UDPBroadcastEndpointFactory().setGroupAddress(GROUP_BROADCAST_ADDRESS).setGroupPort(GROUP_BROADCAST_PORT));
-            ClientSessionFactory nettyFactory = ActiveMQClient.createServerLocatorWithHA(
+            serverLocator = ActiveMQClient.createServerLocatorWithHA(
                     new DiscoveryGroupConfiguration().setBroadcastEndpointFactory(
                             new UDPBroadcastEndpointFactory().setGroupAddress(GROUP_BROADCAST_ADDRESS).setGroupPort(GROUP_BROADCAST_PORT)
                     )
-            )
+            );
+            nettyFactory = serverLocator.createSessionFactory();
 //                    ActiveMQClient.createServerLocator(true, new TransportConfiguration(NettyConnectorFactory.class.getName(), connectionParams))
-                    .createSessionFactory();
             // TODO: uncomment once user is created in artemis broker configuration
             // Create a session with the supplied user name and password, the rest is left to the default values when calling createSession() without parameters
 //            artemisSession = nettyFactory.createSession(MESSAGING_USER, MESSAGING_PASS, false, true, true,
 //                    nettyFactory.getServerLocator().isPreAcknowledge(), nettyFactory.getServerLocator().getAckBatchSize());
             artemisSession = nettyFactory.createSession();
-//            System.out.println("Artemis sessionFactory ID: " +artemisSession.getSessionFactory().getConnection().getID().toString()); // -862590771
             queueName = DESTINATION_ADDRESS + artemisSession.getSessionFactory().getConnection().getID().toString();
             artemisSession.createQueue(DESTINATION_ADDRESS, queueName, true); // (String address, String queue, boolean durable) // TODO: does this need to be durable?
             messageConsumer = artemisSession.createConsumer(queueName);
@@ -114,9 +115,22 @@ class Networking {
 
     public static boolean sendMessage(Message msg) {
         try {
+            if (messageProducer == null || messageProducer.isClosed()) {
+                if (artemisSession == null || artemisSession.isClosed()) {
+                    if (nettyFactory == null || nettyFactory.isClosed())
+                        nettyFactory = serverLocator.createSessionFactory();
+                    artemisSession = nettyFactory.createSession();
+                }
+                // Message producer was closed - open it again
+                messageProducer = artemisSession.createProducer(DESTINATION_ADDRESS);
+            }
             messageProducer.send(msg);
         } catch (ActiveMQException e) {
             System.out.println("Failed to send message:");
+            e.printStackTrace();
+            return false;
+        } catch (Exception e) {
+            System.out.println("Failed to create session factory");
             e.printStackTrace();
             return false;
         }
@@ -131,29 +145,12 @@ class Networking {
         return artemisSession.createMessage(false);
     }
 
-    public static void main(String[] args) {
-        try {
-            startServer();
-            startClient();
-            Runtime.getRuntime().addShutdownHook(new Thread() {
-                @Override
-                public void run() {
-                    System.out.println("Shutting down");
-                    try {
-                        stopServer();
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            });
-            int count = 0;
-            while (!messageProducer.isClosed()) {
-                sendMessage(createMessage("Hello world " + count));
-                count++;
-                Thread.sleep(2000);
-            }
-        } catch (Exception e) {
-//            e.printStackTrace();
-        }
+    public static void init() throws Exception {
+        startServer();
+        startClient();
+    }
+
+    public static void shutdown() throws Exception {
+        stopServer();
     }
 }

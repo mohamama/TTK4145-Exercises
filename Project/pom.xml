@@ -43,7 +43,8 @@
                 <configuration>
                     <archive>
                         <manifest>
-                            <mainClass>no.ntnu.stud.torbjovn.elevator.Networking</mainClass>
+                            <!--<mainClass>no.ntnu.stud.torbjovn.elevator.Networking</mainClass>-->
+                            <mainClass>no.ntnu.stud.torbjovn.elevator.Main</mainClass>
                         </manifest>
                     </archive>
                     <descriptorRefs>
