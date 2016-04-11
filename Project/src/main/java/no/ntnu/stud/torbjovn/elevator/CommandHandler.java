@@ -5,8 +5,11 @@ import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.client.ClientMessage;
 import org.apache.activemq.artemis.api.core.client.MessageHandler;
 
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Class to handle received messages and further dispatch the necessary commands.
@@ -30,12 +33,14 @@ class CommandHandler implements MessageHandler {
             PROPERTY_SOURCE_NODE = "source",
             NODE_ID = Settings.getSetting("ip_address"); // TODO: use only part of the IP?
 
-    // TODO: figure out the best way to associate the Elevator instance (pass as parameter to constructor, or make Elevator class/methods static?)
-    private Elevator thisElevator;
+    private Elevator thisElevator = Main.getElevator();
 
     //TODO: use a map of jobs, mirroring all active jobs in the system
+    private Map<Integer, Long> activeJobs = new HashMap<>(Elevator.NUM_FLOORS * 2);
 
-    ScheduledThreadPoolExecutor waitingJobs = new ScheduledThreadPoolExecutor(1);
+    // TODO: borrow timeout implementation from alarm, or delay scheduling of new jobs until the current one is completed
+    private ScheduledThreadPoolExecutor waitingJobs = new ScheduledThreadPoolExecutor(1);
+    private ScheduledFuture<?> currentJob = null; private int currentJobFloor = 0;
 
     /*
      * Algorithm outline:
@@ -65,6 +70,7 @@ class CommandHandler implements MessageHandler {
                 processNewRequest(clientMessage.getIntProperty(PROPERTY_REQUEST_FLOOR), clientMessage.getStringProperty(PROPERTY_SOURCE_NODE));
                 break;
             case MESSAGE_TYPE_JOB_TAKEN:
+//                if (NODE_ID.equalsIgnoreCase(clientMessage.getStringProperty(PROPERTY_SOURCE_NODE))) break;
                 markRequestTaken(clientMessage.getIntProperty(PROPERTY_REQUEST_FLOOR));
                 break;
             case MESSAGE_TYPE_JOB_COMPLETE:
@@ -74,6 +80,7 @@ class CommandHandler implements MessageHandler {
                 System.out.println("Got a message of unknown type, content follows:");
                 System.out.println("Got message: " + clientMessage.toString());
         }
+        System.out.println("Got message from " + clientMessage.getStringProperty(PROPERTY_SOURCE_NODE) + ", type: " + clientMessage.getStringProperty(PROPERTY_MESSAGE_TYPE) + ", target floor: " + clientMessage.getIntProperty(PROPERTY_REQUEST_FLOOR));
         try {
             clientMessage.acknowledge();
         } catch (ActiveMQException e) {
@@ -82,28 +89,72 @@ class CommandHandler implements MessageHandler {
         }
     }
 
+    private synchronized void updateSchedule() {
+        if (activeJobs.isEmpty()) {
+            System.out.println("No valid job found");
+            return;
+        }
+        Long minimum = null;
+        Integer target = null;
+        // We can do it this way because the size of the set is relatively limited - ( (NUM_FLOORS - 1) * 2)
+        for (Map.Entry<Integer, Long> job: activeJobs.entrySet()) {
+            Long timeout = job.getValue();
+            if (timeout == null) {
+                timeout = calculateCost(job.getKey(), "");
+            }
+            if (minimum == null || timeout < minimum) {
+                minimum = timeout;
+                target = job.getKey();
+            }
+        }
+        if (minimum == null || (currentJob != null && minimum > currentJob.getDelay(TimeUnit.MILLISECONDS))) {
+//            minimum = calculateCost(target, ""); // TODO: calculate cost for all pending requests in the system and take the lowest?
+            return;
+        }
+        currentJob = waitingJobs.schedule(new ElevatorTask(target), minimum, TimeUnit.MILLISECONDS);
+        activeJobs.remove(target);
+        System.out.println("Submitted new request for execution in " + minimum + "ms, target: " + target);
+    }
+
     private void markRequestTaken(int target) {
-        // TODO: Add 10 seconds to the dispatch timeout for the job
         // Step 1 - retrieve the job matching the target
-
+        Long timeout = activeJobs.get(target);
+        if (timeout == null) {
+            // Job doesn't exist in the queue - add it
+//            processNewRequest(target, "");
+//            timeout = activeJobs.get(target);
+            timeout = 0L;
+        }
         // Step 2 - add JOB_TIMEOUT to the execution timer
-
+        int waitingJobs = activeJobs.size();
+        if (waitingJobs == 0) waitingJobs = 1;
+        timeout += JOB_TIMEOUT * waitingJobs;
         // Step 3 - save the job and reschedule timer if needed
+        activeJobs.put(target, timeout);
+        updateSchedule();
     }
 
     private void removeRequest(int target) {
-        // TODO: remove the pending request
+        if (currentJob != null && currentJobFloor != target)
+            currentJob.cancel(false);
+        activeJobs.remove(target);
+        updateSchedule();
     }
 
     private void processNewRequest(int target, String source) {
-        // TODO: calculate cost and add request to timeout queue
-        long timeNow = System.currentTimeMillis();
-        int cost = 0;
-        if (!NODE_ID.equalsIgnoreCase(source)) cost += COST_NOT_HERE;
+        Long cost = null;
         // TODO: only include the following line if the elevator is at a location where it will make sense
+        if (currentJob == null) cost = calculateCost(target, source);
+        activeJobs.put(target, cost);
+        updateSchedule();
+    }
+
+    private long calculateCost(int target, String source) {
+        long cost = 0;
+        if (!NODE_ID.equalsIgnoreCase(source)) cost += COST_NOT_HERE;
         if (thisElevator.isMoving()) cost += COST_MOVING;
         cost += Math.abs(target - thisElevator.getCurrentFloor()) * COST_EACH_FLOOR;
-
+        return cost;
     }
 
     // TODO: this doesn't really belong in this class
@@ -112,16 +163,51 @@ class CommandHandler implements MessageHandler {
      * @param targetFloor
      * @param direction
      */
-    private void sendRequest(int targetFloor, int direction) {
-        if (direction == Elevator.DIR_UP || direction == Elevator.DIR_DOWN) {
+    public static void sendRequest(int targetFloor /*, int direction */) {
+//        if (direction == Elevator.DIR_UP || direction == Elevator.DIR_DOWN) {
             if (targetFloor > Elevator.NUM_FLOORS || targetFloor < 1) return;
             Message request = Networking.createMessage()
                     .putStringProperty(PROPERTY_MESSAGE_TYPE, MESSAGE_TYPE_NEW_REQUEST)
-                    .putIntProperty(PROPERTY_REQUEST_FLOOR, targetFloor * direction)
+                    .putIntProperty(PROPERTY_REQUEST_FLOOR, targetFloor /* * direction */)
                     .putStringProperty(PROPERTY_SOURCE_NODE, NODE_ID);
             Networking.sendMessage(request);
-        }
+//        }
     }
 
+    public static void takeJob(int targetFloor) {
+        if (targetFloor > Elevator.NUM_FLOORS || targetFloor < 1) return;
+        Message notification = Networking.createMessage()
+                .putStringProperty(PROPERTY_MESSAGE_TYPE, MESSAGE_TYPE_JOB_TAKEN)
+                .putStringProperty(PROPERTY_SOURCE_NODE, NODE_ID)
+                .putIntProperty(PROPERTY_REQUEST_FLOOR, targetFloor);
+        Networking.sendMessage(notification);
+    }
 
+    public static void jobCompleted(int targetFloor) {
+        if (targetFloor > Elevator.NUM_FLOORS || targetFloor < 1) return;
+        Message notification = Networking.createMessage()
+                .putStringProperty(PROPERTY_MESSAGE_TYPE, MESSAGE_TYPE_JOB_COMPLETE)
+                .putStringProperty(PROPERTY_SOURCE_NODE, NODE_ID)
+                .putIntProperty(PROPERTY_REQUEST_FLOOR, targetFloor);
+        Networking.sendMessage(notification);
+    }
+
+    protected class ElevatorTask implements Runnable {
+        int target;
+
+        public ElevatorTask(int targetFloor) {
+            target = targetFloor;
+        }
+
+        @Override
+        public void run() {
+            takeJob(target);
+            currentJobFloor = target;
+            thisElevator.goToFloor(Math.abs(target));
+            jobCompleted(target);
+            updateSchedule();
+            currentJob = null;
+            currentJobFloor = 0;
+        }
+    }
 }
