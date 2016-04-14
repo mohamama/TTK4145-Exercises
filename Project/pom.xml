@@ -26,6 +26,15 @@
 
     <packaging>jar</packaging>
     <build>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <includes>
+                    <include>broker.xml</include>
+                    <include>driver/libelevator.so</include>
+                </includes>
+            </resource>
+        </resources>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
@@ -52,6 +61,7 @@
                     </descriptorRefs>
                 </configuration>
                 <executions>
+                    <!-- TODO: find out a way to invoke 'make' in the resources/driver dir -->
                     <execution>
                         <id>make-assembly</id> <!-- this is used for inheritance merges -->
                         <phase>package</phase> <!-- bind to the packaging phase -->
