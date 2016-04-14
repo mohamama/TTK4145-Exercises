@@ -8,13 +8,20 @@ import java.io.IOException;
  * Created by marje on 22.03.2016.
  */
 public class Elevator {
-    // TODO: do something to persist the current status in case of restart
-    public static final int NUM_FLOORS = 4;
-    public static final int DIR_UP = 1,
-                            DIR_DOWN = -1,
-                            DIR_STOP = 0;
+    private InputListener inputListenerThread = new InputListener();
+    // TODO: do something to persist the current status in case of restart?
+    public static final int NUM_FLOORS = 4,
+            DIR_UP = 1,
+            DIR_DOWN = -1,
+            DIR_STOP = 0,
+            NUM_BUTTONS = 3,
+            BUTTON_TYPE_CALL_UP = 0,
+            BUTTON_TYPE_CALL_DOWN = 1,
+            BUTTON_TYPE_COMMAND = 2;
+
     private int direction = 0;
-    private boolean doorOpen; // TODO: implement handling of this - should be true when stopping at a floor (for a given amount of time), and when doorObstructed is true
+    private boolean doorOpen, // TODO: implement handling of this - should be true when stopping at a floor (for a given amount of time), and when doorObstructed is true
+                    busy;
 //    private int currentFloor = 0;
 
     static {
@@ -39,6 +46,9 @@ public class Elevator {
             findMyLocation();
         } else
             System.out.println("Elevator is currently at floor " + currFloor);
+
+        // Start listening for button events
+        inputListenerThread.start();
     }
 
     public void stopElevator() {
@@ -57,6 +67,11 @@ public class Elevator {
     }
 
     public void goToFloor(int target) {
+        // TODO: waiting or return with error if busy?
+        while (doorOpen || busy) { // Don't move until the door is closed
+            try { Thread.sleep(10); } catch (InterruptedException ignored) {} // Sleep to save CPU resources
+        }
+        busy = true;
         if (target < 1 || target > NUM_FLOORS) {
             System.out.println("Invalid floor specified (" + target + "), ignoring");
             return; // Invalid value, do nothing
@@ -68,10 +83,6 @@ public class Elevator {
             lastFloor = getCurrentFloor();
         }
 
-        while (doorOpen) { // Don't move until the door is closed
-            try { Thread.sleep(10); } catch (InterruptedException ignored) {} // Sleep to save CPU resources
-        }
-        
         int difference = target - lastFloor;
 
         if (difference == 0) return;
@@ -82,7 +93,7 @@ public class Elevator {
             // Target is lower than the current floor
             setDirection(DIR_DOWN);
         }
-        // TODO: make this asynchronous?
+        // TODO: make this asynchronous and interruptable when arriving at a floor?
         while(lastFloor != target) {
             while (getCurrentFloor() == 0 || getCurrentFloor() == lastFloor) {
                 // Wait until reaching the next floor
@@ -97,6 +108,14 @@ public class Elevator {
         }
         setDirection(DIR_STOP);
         System.out.println("Arrived at target floor");
+        busy = false;
+    }
+
+    private void stopButtonPressed() {
+        // TODO: implementation - should stop the elevator (interrupt ongoing goToFloor calls), mark it as busy and set the stop button light
+        System.out.println("Stop button press registered");
+        elev_set_stop_lamp(1);
+        stopElevator();
     }
 
     /**
@@ -116,10 +135,91 @@ public class Elevator {
         elev_set_motor_direction(direction);
     }
 
+    private class InputListener extends Thread {
+        /*
+            This is a polling-based input driver to generate "interrupt events when buttons are pressed"
+            Different actions should be performed, depending on which button was pressed:
+             - Call buttons (outside the elevator - BUTTON_UP/DOWN_n in elev.c) should submit a command to the network
+             - Command buttons (inside) can directly call the goToFloor() function with the target floor as argument
+             - Stop button should stopElevator()
+        */
+
+        // Variables for storing the previous status of buttons
+        private int [][] buttonStatus = new int[NUM_FLOORS][NUM_BUTTONS];
+        private int stopButtonStatus = 0;
+        private boolean obstruction_LastValue;
+
+        @Override
+        public void run() {
+            super.run(); // TODO: include this or take out?
+            int tempInt;
+            boolean tempBool;
+
+            while(true) {
+                for (int floor = 0; floor < NUM_FLOORS; floor++) {
+                    for (int button = 0; button < NUM_BUTTONS; button++) {
+                        tempInt = elev_get_button_signal(button, floor);
+                        if (buttonStatus[floor][button] != tempInt) {
+                            if (tempInt == 1) {
+                                // Button was pressed - signal the appropriate handler - TODO
+                                switch (button) {
+                                    case BUTTON_TYPE_CALL_UP:
+                                        if (floor == (NUM_FLOORS -1)) {
+                                            System.out.println("This is the top floor - there is no button to call up...");
+                                        } else {
+                                            CommandHandler.sendRequest(floor + 1);
+                                            System.out.println("Request to go up from floor " + (floor+ 1) + " sent");
+                                        }
+                                        break;
+                                    case BUTTON_TYPE_CALL_DOWN:
+                                        if (floor == 0) {
+                                            System.out.println("This is the bottom floor - there is no button to call down...");
+                                        } else {
+                                            CommandHandler.sendRequest(-(floor + 1));
+                                            System.out.println("Request to go down from floor " + (floor + 1) + " sent");
+                                        }
+                                        break;
+                                    case BUTTON_TYPE_COMMAND:
+                                        // TODO: make async, this will block the input thread until the elevator arrives
+                                        elev_set_button_lamp(button, floor, 1);
+                                        goToFloor(floor + 1);
+                                        elev_set_button_lamp(button, floor, 0);
+                                        break;
+                                }
+                            }
+                            buttonStatus[floor][button] = tempInt;
+                        }
+                    }
+                }
+                tempInt = elev_get_stop_signal();
+                if (stopButtonStatus != tempInt) {
+                    if (tempInt == 1) {
+                        stopButtonPressed();
+                    }
+                    stopButtonStatus = tempInt;
+                }
+
+                // TODO: does this function really need a callback, or should it be checked on demand?
+                tempBool = doorObstructed();
+                if (obstruction_LastValue != tempBool) {
+                    // TODO: callback?
+                    obstruction_LastValue = doorObstructed();
+                }
+
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException ignored) {}
+            }
+        }
+    }
+
+    /*
+     * Native wrapper functions folllow
+     */
     private native boolean hw_init();
 
     private native void elev_set_motor_direction(int dirn);
-    private native void elev_set_button_lamp(int button, int floor, int value);
+    public native void elev_set_button_lamp(int button, int floor, int value);
     /**
      * @param floor - 1-indexed, to match the "intuitive" understanding of a floor
      */
@@ -127,32 +227,7 @@ public class Elevator {
 
     private native void elev_set_door_open_lamp(int value);
     private native void elev_set_stop_lamp(int value);
-
-    private class InputListener extends Thread {
-        // TODO: implement a driver for this (abstract it away and make asynchronous events for button presses)
-        public native boolean doorObstructed();
-        public static final int NUM_BUTTONS = 3;
-        @Override
-        public void run() {
-            super.run();
-            while(true) {
-                /*
-                 TODO: Iterate through all buttons on all floors and check the state
-                 If a button is pressed (and it wasn't before), fire an event. For now, just mark it with a //TODO
-                 or something - implementation will be done later.
-
-                 Different actions should be performed, depending on which button was pressed:
-                     - Call buttons (outside the elevator - BUTTON_UP/DOWN_n in elev.c) should submit a command to the network
-                     - Command buttons (inside) can directly call the goToFloor() function with the target floor as argument
-                     - Stop button should stopElevator()
-
-                 You need to keep track of the last state of all buttons (you only want to fire the event handler once
-                 for each time the button is pressed)
-                  */
-            }
-        }
-
-        private native int elev_get_button_signal(int button, int floor);
-        private native int elev_get_stop_signal();
-    }
+    private native int elev_get_button_signal(int button, int floor);
+    private native int elev_get_stop_signal();
+    public native boolean doorObstructed();
 }

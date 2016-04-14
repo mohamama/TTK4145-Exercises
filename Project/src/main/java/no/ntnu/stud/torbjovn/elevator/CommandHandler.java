@@ -135,17 +135,36 @@ class CommandHandler implements MessageHandler {
     }
 
     private void removeRequest(int target) {
+        int button, floor;
         if (currentJob != null && currentJobFloor != target)
             currentJob.cancel(false);
         activeJobs.remove(target);
+        if (target > 0)
+            button = Elevator.BUTTON_TYPE_CALL_UP;
+        else
+            button = Elevator.BUTTON_TYPE_CALL_DOWN;
+        floor = Math.abs(target) - 1; // Convert from 1- to 0-indexed
+        thisElevator.elev_set_button_lamp(button, floor, 0);
         updateSchedule();
     }
 
     private void processNewRequest(int target, String source) {
+        if (!thisElevator.isMoving() && Math.abs(target) == thisElevator.getCurrentFloor()){
+            // We're already here, cancel this request
+            jobCompleted(target);
+            return;
+        }
         Long cost = null;
+        int button, floor;
         // TODO: only include the following line if the elevator is at a location where it will make sense
         if (currentJob == null) cost = calculateCost(target, source);
         activeJobs.put(target, cost);
+        if (target > 0)
+            button = Elevator.BUTTON_TYPE_CALL_UP;
+        else
+            button = Elevator.BUTTON_TYPE_CALL_DOWN;
+        floor = Math.abs(target) - 1; // Convert from 1- to 0-indexed
+        thisElevator.elev_set_button_lamp(button, floor, 1);
         updateSchedule();
     }
 
@@ -160,39 +179,48 @@ class CommandHandler implements MessageHandler {
     // TODO: this doesn't really belong in this class
     /**
      * Function to broadcast a new command to the elevator cluster
-     * @param targetFloor
-     * @param direction
+     * @param targetFloor - the target floor to go to (1-indexed), negative sign means "down"
      */
-    public static void sendRequest(int targetFloor /*, int direction */) {
-//        if (direction == Elevator.DIR_UP || direction == Elevator.DIR_DOWN) {
-            if (targetFloor > Elevator.NUM_FLOORS || targetFloor < 1) return;
+    public static void sendRequest(int targetFloor) {
+        if (Math.abs(targetFloor) > Elevator.NUM_FLOORS || targetFloor == 0) return;
+        try {
             Message request = Networking.createMessage()
                     .putStringProperty(PROPERTY_MESSAGE_TYPE, MESSAGE_TYPE_NEW_REQUEST)
-                    .putIntProperty(PROPERTY_REQUEST_FLOOR, targetFloor /* * direction */)
+                    .putIntProperty(PROPERTY_REQUEST_FLOOR, targetFloor)
                     .putStringProperty(PROPERTY_SOURCE_NODE, NODE_ID);
             Networking.sendMessage(request);
-//        }
+        } catch (NullPointerException npe) {
+            System.out.println("Network is not yet ready, please wait...");
+        }
     }
 
     public static void takeJob(int targetFloor) {
-        if (targetFloor > Elevator.NUM_FLOORS || targetFloor < 1) return;
-        Message notification = Networking.createMessage()
-                .putStringProperty(PROPERTY_MESSAGE_TYPE, MESSAGE_TYPE_JOB_TAKEN)
-                .putStringProperty(PROPERTY_SOURCE_NODE, NODE_ID)
-                .putIntProperty(PROPERTY_REQUEST_FLOOR, targetFloor);
-        Networking.sendMessage(notification);
+        if (Math.abs(targetFloor) > Elevator.NUM_FLOORS || targetFloor == 0) return;
+        try {
+            Message notification = Networking.createMessage()
+                    .putStringProperty(PROPERTY_MESSAGE_TYPE, MESSAGE_TYPE_JOB_TAKEN)
+                    .putStringProperty(PROPERTY_SOURCE_NODE, NODE_ID)
+                    .putIntProperty(PROPERTY_REQUEST_FLOOR, targetFloor);
+            Networking.sendMessage(notification);
+        } catch (NullPointerException npe) {
+            System.out.println("Network is not yet ready, please wait...");
+        }
     }
 
     public static void jobCompleted(int targetFloor) {
-        if (targetFloor > Elevator.NUM_FLOORS || targetFloor < 1) return;
-        Message notification = Networking.createMessage()
-                .putStringProperty(PROPERTY_MESSAGE_TYPE, MESSAGE_TYPE_JOB_COMPLETE)
-                .putStringProperty(PROPERTY_SOURCE_NODE, NODE_ID)
-                .putIntProperty(PROPERTY_REQUEST_FLOOR, targetFloor);
-        Networking.sendMessage(notification);
+        if (Math.abs(targetFloor) > Elevator.NUM_FLOORS || targetFloor == 0) return;
+        try {
+            Message notification = Networking.createMessage()
+                    .putStringProperty(PROPERTY_MESSAGE_TYPE, MESSAGE_TYPE_JOB_COMPLETE)
+                    .putStringProperty(PROPERTY_SOURCE_NODE, NODE_ID)
+                    .putIntProperty(PROPERTY_REQUEST_FLOOR, targetFloor);
+            Networking.sendMessage(notification);
+        } catch (NullPointerException npe) {
+            System.out.println("Network is not yet ready, please wait...");
+        }
     }
 
-    protected class ElevatorTask implements Runnable {
+    public class ElevatorTask implements Runnable {
         int target;
 
         public ElevatorTask(int targetFloor) {
