@@ -29,8 +29,8 @@ static const int button_channel_matrix[N_FLOORS][N_BUTTONS] = {
     {BUTTON_UP4, BUTTON_DOWN4, BUTTON_COMMAND4},
 };
 
-static const int ET_Comedi = 0,
-		ET_Simulation = 1;
+//static const int ET_Comedi = 0,
+//		ET_Simulation = 1;
 
 static int elevatorType = ET_Comedi;
 static int sockfd;
