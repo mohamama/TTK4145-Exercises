@@ -19,6 +19,9 @@ public class Elevator {
             BUTTON_TYPE_CALL_DOWN = 1,
             BUTTON_TYPE_COMMAND = 2;
 
+    private static final int ET_Comedi = 0,
+            ET_Simulation = 1;
+
     private int direction = 0;
     private boolean doorOpen, // TODO: implement handling of this - should be true when stopping at a floor (for a given amount of time), and when doorObstructed is true
                     busy;
@@ -34,10 +37,15 @@ public class Elevator {
     }
 
     public Elevator() {
-        if (!hw_init()) {
+        if (!hw_init(ET_Comedi)) {
+
             System.out.println("Failed to initialize elevator hardware!");
+            if(!hw_init(ET_Simulation)){
+                System.out.println("Failed to initialize elevator simulator!");
+                Runtime.getRuntime().exit(1);
+
+            }
             // TODO: enter "simulation mode" (for testing network handling etc.) if initialization failed
-            Runtime.getRuntime().exit(1);
         }
         System.out.println("HW initialization done");
         int currFloor = getCurrentFloor();
@@ -216,7 +224,7 @@ public class Elevator {
     /*
      * Native wrapper functions folllow
      */
-    private native boolean hw_init();
+    private native boolean hw_init(int mode);
 
     private native void elev_set_motor_direction(int dirn);
     public native void elev_set_button_lamp(int button, int floor, int value);

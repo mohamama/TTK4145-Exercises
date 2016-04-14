@@ -40,10 +40,10 @@ JNIEXPORT jboolean JNICALL Java_no_ntnu_stud_torbjovn_elevator_Elevator_doorObst
 /*
  * Class:     no_ntnu_stud_torbjovn_elevator_Elevator
  * Method:    hw_init
- * Signature: ()Z
+ * Signature: (I)Z
  */
 JNIEXPORT jboolean JNICALL Java_no_ntnu_stud_torbjovn_elevator_Elevator_hw_1init
-  (JNIEnv *, jobject);
+  (JNIEnv *, jobject, jint);
 
 /*
  * Class:     no_ntnu_stud_torbjovn_elevator_Elevator
