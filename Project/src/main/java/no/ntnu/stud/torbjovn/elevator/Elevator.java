@@ -19,6 +19,9 @@ public class Elevator {
             BUTTON_TYPE_CALL_DOWN = 1,
             BUTTON_TYPE_COMMAND = 2;
 
+    // A list of commands added by button presses from within the elevator cabin - these should have priority OVER commands received from network
+    private static boolean[] internalCommands = new boolean[NUM_FLOORS];
+
     private static final int ET_Comedi = 0,
             ET_Simulation = 1;
 
@@ -74,6 +77,7 @@ public class Elevator {
         System.out.println("Found floor " + getCurrentFloor());
     }
 
+    // TODO: this function should be made asynchronous (by using a background thread)
     public void goToFloor(int target) {
         // TODO: waiting or return with error if busy?
         while (doorOpen || busy) { // Don't move until the door is closed
@@ -84,6 +88,7 @@ public class Elevator {
             System.out.println("Invalid floor specified (" + target + "), ignoring");
             return; // Invalid value, do nothing
         }
+        // TODO: background thread code should start here
         int lastFloor = getCurrentFloor();
         // If elevator is between floors (we don't know its current location), go down to the nearest one
         if (lastFloor == 0) {
@@ -96,12 +101,14 @@ public class Elevator {
         if (difference == 0) return;
         else if (difference > 0) {
             // Target is higher than the current floor
-            setDirection(DIR_UP);
+            direction = DIR_UP;
         } else {
             // Target is lower than the current floor
-            setDirection(DIR_DOWN);
+            direction = DIR_DOWN;
         }
-        // TODO: make this asynchronous and interruptable when arriving at a floor?
+        setDirection(direction);
+
+        outerLoop:
         while(lastFloor != target) {
             while (getCurrentFloor() == 0 || getCurrentFloor() == lastFloor) {
                 // Wait until reaching the next floor
@@ -113,10 +120,39 @@ public class Elevator {
             elev_set_floor_indicator(lastFloor);
             System.out.println("Current floor: " + lastFloor);
             if (lastFloor >= NUM_FLOORS || lastFloor <= 1) break; // Stop if we have reached top or bottom for some reason
+            // If request exists here, stop (and resume afterwards)
+            if (handleRequestIfExists(lastFloor, direction)) {
+                // TODO: stop, and add another request to the original target (with the same priority as an internal command)
+                break outerLoop;
+            }
         }
         setDirection(DIR_STOP);
         System.out.println("Arrived at target floor");
+        internalCommands[lastFloor] = false;
         busy = false;
+    }
+
+    /**
+     * Function to check if a matching request exists (and notify the others that we took it if applicable)
+     * @param floor - target floor
+     * @param direction - requested direction
+     * @return whether or not the job exists (and was handled)
+     */
+    private boolean handleRequestIfExists(int floor, int direction) {
+        if (floor >= NUM_FLOORS || floor < 0 || Math.abs(direction) > 1)
+            return false;
+
+        if ( internalCommands[floor])
+            return true;
+
+        // 1-indexed with the sign indicating the direction
+        int targetWithDirection = (floor + 1) * direction;
+        if (CommandHandler.jobExists(targetWithDirection)) {
+            CommandHandler.jobCompleted(targetWithDirection); // Notify the others that we intend to stop here
+            return true;
+        }
+
+        return false;
     }
 
     private void stopButtonPressed() {
@@ -141,6 +177,16 @@ public class Elevator {
     private void setDirection(int direction) {
         this.direction = direction;
         elev_set_motor_direction(direction);
+    }
+
+    private void handleFloorCommand(int target){
+        if(target >= NUM_FLOORS || target < 0)
+            return ;
+        // TODO: implement asyncGoToFloor
+        if (!asyncGoToFloor(target))
+            return;
+        elev_set_button_lamp(BUTTON_TYPE_COMMAND,target,1);
+        internalCommands[target] = true;
     }
 
     private class InputListener extends Thread {
@@ -188,10 +234,7 @@ public class Elevator {
                                         }
                                         break;
                                     case BUTTON_TYPE_COMMAND:
-                                        // TODO: make async, this will block the input thread until the elevator arrives
-                                        elev_set_button_lamp(button, floor, 1);
-                                        goToFloor(floor + 1);
-                                        elev_set_button_lamp(button, floor, 0);
+                                        handleFloorCommand(floor);
                                         break;
                                 }
                             }

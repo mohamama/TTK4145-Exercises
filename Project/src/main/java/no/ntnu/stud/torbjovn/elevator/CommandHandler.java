@@ -36,7 +36,11 @@ class CommandHandler implements MessageHandler {
     private Elevator thisElevator = Main.getElevator();
 
     //TODO: use a map of jobs, mirroring all active jobs in the system
-    private Map<Integer, Long> activeJobs = new HashMap<>(Elevator.NUM_FLOORS * 2);
+    private static Map<Integer, Long> activeJobs = new HashMap<>(Elevator.NUM_FLOORS * 2);
+
+    public static boolean jobExists(int target) {
+        return activeJobs.containsKey(target);
+    }
 
     // TODO: borrow timeout implementation from alarm, or delay scheduling of new jobs until the current one is completed
     private ScheduledThreadPoolExecutor waitingJobs = new ScheduledThreadPoolExecutor(1);
