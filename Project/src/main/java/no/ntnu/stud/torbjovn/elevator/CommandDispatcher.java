@@ -32,7 +32,10 @@ public class CommandDispatcher extends Thread {
         activeJobs.remove(target);
     }
 
-    private void processPendingJobs() {
+    /**
+     * Process the job that is currently first in line, and calculates the delay for the next
+     */
+    private void processNextJob() {
         Set<Map.Entry<Integer, Long>> jobSet = activeJobs.entrySet();
         Map.Entry<Integer, Long> earliestJob = null, nextJob = null;
         // Sort the pending jobs by delay period (cost) and return the two earliest (if existent)
@@ -49,9 +52,8 @@ public class CommandDispatcher extends Thread {
             }
         }
 
-        if (System.currentTimeMillis() >= nextWakeup && earliestJob != null) {
-            // TODO: Handle the job - move the elevator (use function in CommandHandler or move/make implementation)
-            activeJobs.remove(earliestJob.getKey());
+        if (earliestJob != null && System.currentTimeMillis() >= nextWakeup) {
+            dispatchJob(earliestJob.getKey());
         } else // We woke up too soon - go back to sleep
             nextJob = earliestJob;
 
@@ -67,10 +69,16 @@ public class CommandDispatcher extends Thread {
         }
     }
 
+    private void dispatchJob(int target) {
+        CommandHandler.signalTakeJob(target);
+        thisElevator.asyncGoToFloor(Math.abs(target));
+        activeJobs.remove(target);
+    }
+
     public void run() {
         System.out.println("CommandDispatcher thread started");
         while(true) {
-            processPendingJobs();
+            processNextJob();
             synchronized (waitLock) {
                 try {
                     System.out.println("Waiting for new notifications to process");
