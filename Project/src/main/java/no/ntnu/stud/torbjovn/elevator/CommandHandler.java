@@ -43,8 +43,8 @@ class CommandHandler implements MessageHandler {
     }
 
     // TODO: borrow timeout implementation from alarm, or delay scheduling of new jobs until the current one is completed
-    private ScheduledThreadPoolExecutor waitingJobs = new ScheduledThreadPoolExecutor(1);
-    private ScheduledFuture<?> currentJob = null; private int currentJobFloor = 0;
+//    private ScheduledThreadPoolExecutor waitingJobs = new ScheduledThreadPoolExecutor(1);
+//    private ScheduledFuture<?> currentJob = null; private int currentJobFloor = 0;
 
     /*
      * Algorithm outline:
@@ -93,32 +93,32 @@ class CommandHandler implements MessageHandler {
         }
     }
 
-    private synchronized void updateSchedule() {
-        if (activeJobs.isEmpty()) {
-            System.out.println("No valid job found");
-            return;
-        }
-        Long minimum = null;
-        Integer target = null;
-        // We can do it this way because the size of the set is relatively limited - ( (NUM_FLOORS - 1) * 2)
-        for (Map.Entry<Integer, Long> job: activeJobs.entrySet()) {
-            Long timeout = job.getValue();
-            if (timeout == null) {
-                timeout = calculateCost(job.getKey(), "");
-            }
-            if (minimum == null || timeout < minimum) {
-                minimum = timeout;
-                target = job.getKey();
-            }
-        }
-        if (minimum == null || (currentJob != null && minimum > currentJob.getDelay(TimeUnit.MILLISECONDS))) {
-//            minimum = calculateCost(target, ""); // TODO: calculate cost for all pending requests in the system and take the lowest?
-            return;
-        }
-        currentJob = waitingJobs.schedule(new ElevatorTask(target), minimum, TimeUnit.MILLISECONDS);
-        activeJobs.remove(target);
-        System.out.println("Submitted new request for execution in " + minimum + "ms, target: " + target);
-    }
+//    private synchronized void updateSchedule() {
+//        if (activeJobs.isEmpty()) {
+//            System.out.println("No valid job found");
+//            return;
+//        }
+//        Long minimum = null;
+//        Integer target = null;
+//        // We can do it this way because the size of the set is relatively limited - ( (NUM_FLOORS - 1) * 2)
+//        for (Map.Entry<Integer, Long> job: activeJobs.entrySet()) {
+//            Long timeout = job.getValue();
+//            if (timeout == null) {
+//                timeout = calculateCost(job.getKey(), "");
+//            }
+//            if (minimum == null || timeout < minimum) {
+//                minimum = timeout;
+//                target = job.getKey();
+//            }
+//        }
+//        if (minimum == null || (currentJob != null && minimum > currentJob.getDelay(TimeUnit.MILLISECONDS))) {
+////            minimum = calculateCost(target, ""); // TODO: calculate cost for all pending requests in the system and take the lowest?
+//            return;
+//        }
+//        currentJob = waitingJobs.schedule(new ElevatorTask(target), minimum, TimeUnit.MILLISECONDS);
+//        activeJobs.remove(target);
+//        System.out.println("Submitted new request for execution in " + minimum + "ms, target: " + target);
+//    }
 
     private void markRequestTaken(int target) {
         // Step 1 - retrieve the job matching the target
@@ -134,42 +134,45 @@ class CommandHandler implements MessageHandler {
         if (waitingJobs == 0) waitingJobs = 1;
         timeout += JOB_TIMEOUT * waitingJobs;
         // Step 3 - save the job and reschedule timer if needed
-        activeJobs.put(target, timeout);
-        updateSchedule();
+//        activeJobs.put(target, timeout);
+//        updateSchedule();
+        CommandDispatcher.addRequestToQueue(target, timeout);
     }
 
     private void removeRequest(int target) {
         int button, floor;
-        if (currentJob != null && currentJobFloor != target)
-            currentJob.cancel(false);
-        activeJobs.remove(target);
+//        if (currentJob != null && currentJobFloor != target)
+//            currentJob.cancel(false);
+//        activeJobs.remove(target);
+        CommandDispatcher.cancelRequest(target);
         if (target > 0)
             button = Elevator.BUTTON_TYPE_CALL_UP;
         else
             button = Elevator.BUTTON_TYPE_CALL_DOWN;
         floor = Math.abs(target) - 1; // Convert from 1- to 0-indexed
         thisElevator.elev_set_button_lamp(button, floor, 0);
-        updateSchedule();
+//        updateSchedule();
     }
 
     private void processNewRequest(int target, String source) {
         if (!thisElevator.isMoving() && Math.abs(target) == thisElevator.getCurrentFloor()){
             // We're already here, cancel this request
-            jobCompleted(target);
+            signalJobCompleted(target);
             return;
         }
-        Long cost = null;
+        long cost = calculateCost(target, source);
         int button, floor;
         // TODO: only include the following line if the elevator is at a location where it will make sense
-        if (currentJob == null) cost = calculateCost(target, source);
-        activeJobs.put(target, cost);
+//        if (currentJob == null) cost = calculateCost(target, source);
+//        activeJobs.put(target, cost);
+        CommandDispatcher.addRequestToQueue(target, cost);
         if (target > 0)
             button = Elevator.BUTTON_TYPE_CALL_UP;
         else
             button = Elevator.BUTTON_TYPE_CALL_DOWN;
         floor = Math.abs(target) - 1; // Convert from 1- to 0-indexed
         thisElevator.elev_set_button_lamp(button, floor, 1);
-        updateSchedule();
+//        updateSchedule();
     }
 
     private long calculateCost(int target, String source) {
@@ -198,7 +201,7 @@ class CommandHandler implements MessageHandler {
         }
     }
 
-    public static void takeJob(int targetFloor) {
+    public static void signalTakeJob(int targetFloor) {
         if (Math.abs(targetFloor) > Elevator.NUM_FLOORS || targetFloor == 0) return;
         try {
             Message notification = Networking.createMessage()
@@ -211,7 +214,7 @@ class CommandHandler implements MessageHandler {
         }
     }
 
-    public static void jobCompleted(int targetFloor) {
+    public static void signalJobCompleted(int targetFloor) {
         if (Math.abs(targetFloor) > Elevator.NUM_FLOORS || targetFloor == 0) return;
         try {
             Message notification = Networking.createMessage()
@@ -224,22 +227,22 @@ class CommandHandler implements MessageHandler {
         }
     }
 
-    public class ElevatorTask implements Runnable {
-        int target;
-
-        public ElevatorTask(int targetFloor) {
-            target = targetFloor;
-        }
-
-        @Override
-        public void run() {
-            takeJob(target);
-            currentJobFloor = target;
-            thisElevator.goToFloor(Math.abs(target));
-            jobCompleted(target);
-            updateSchedule();
-            currentJob = null;
-            currentJobFloor = 0;
-        }
-    }
+//    public class ElevatorTask implements Runnable {
+//        int target;
+//
+//        public ElevatorTask(int targetFloor) {
+//            target = targetFloor;
+//        }
+//
+//        @Override
+//        public void run() {
+//            signalTakeJob(target);
+//            currentJobFloor = target;
+//            thisElevator.goToFloor(Math.abs(target));
+//            signalJobCompleted(target);
+//            updateSchedule();
+//            currentJob = null;
+//            currentJobFloor = 0;
+//        }
+//    }
 }

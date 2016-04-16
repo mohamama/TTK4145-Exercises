@@ -5,6 +5,7 @@ package no.ntnu.stud.torbjovn.elevator;
  */
 public class Main {
     private static Elevator elevator = new Elevator();
+    private static CommandDispatcher dispatcherThread = new CommandDispatcher();
 
     public static Elevator getElevator() {
         return elevator;
@@ -22,6 +23,8 @@ public class Main {
                 }
             }
         });
+
+        dispatcherThread.start();
         try {
             Networking.init();
         } catch (Exception e) {

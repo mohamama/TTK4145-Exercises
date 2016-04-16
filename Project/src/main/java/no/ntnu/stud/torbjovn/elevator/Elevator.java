@@ -148,7 +148,7 @@ public class Elevator {
         // 1-indexed with the sign indicating the direction
         int targetWithDirection = (floor + 1) * direction;
         if (CommandHandler.jobExists(targetWithDirection)) {
-            CommandHandler.jobCompleted(targetWithDirection); // Notify the others that we intend to stop here
+            CommandHandler.signalJobCompleted(targetWithDirection); // Notify the others that we intend to stop here
             return true;
         }
 
@@ -234,7 +234,8 @@ public class Elevator {
                                         }
                                         break;
                                     case BUTTON_TYPE_COMMAND:
-                                        handleFloorCommand(floor);
+                                        if (floor != (getCurrentFloor() - 1))
+                                            handleFloorCommand(floor);
                                         break;
                                 }
                             }
