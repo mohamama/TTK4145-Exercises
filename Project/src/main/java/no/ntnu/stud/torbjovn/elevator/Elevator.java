@@ -205,19 +205,23 @@ public class Elevator {
                 while (lastFloor != target) {
                     while (getCurrentFloor() == 0 || getCurrentFloor() == lastFloor) {
                         // Wait until reaching the next floor
+                        System.out.print('.');
+                        System.out.print(getCurrentFloor());
+                        // TODO: for some reason it won't go to the top floor unless we started from the floor just below (internal commands)
                         try {
-                            Thread.sleep(10);
-                        } catch (InterruptedException ignored) {
-                        }
+                            Thread.sleep(50);
+                        } catch (InterruptedException ignored) {}
                     }
                     lastFloor = getCurrentFloor();
                     elev_set_floor_indicator(lastFloor);
                     System.out.println("Current floor: " + lastFloor);
-                    if (lastFloor >= NUM_FLOORS || lastFloor <= 1)
-                        break; // Stop if we have reached top or bottom for some reason
                     // If request exists here, stop (and resume afterwards)
                     if (handleRequestIfExists(lastFloor, direction)) {
                         waitAtCurrentFloor(); // Open the door and wait before continuing
+                    }
+                    if (lastFloor >= NUM_FLOORS || lastFloor <= 1) {
+                        System.out.println("Arrived at the top/bottom floor - not possible to go any further");
+                        break; // Stop if we have reached top or bottom for some reason
                     }
                 }
                 System.out.println("Arrived at target floor");
