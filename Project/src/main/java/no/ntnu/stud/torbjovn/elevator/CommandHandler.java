@@ -179,7 +179,7 @@ class CommandHandler implements MessageHandler {
         long cost = 0;
         if (!NODE_ID.equalsIgnoreCase(source)) cost += COST_NOT_HERE;
         if (thisElevator.isMoving()) cost += COST_MOVING;
-        cost += Math.abs(target - thisElevator.getCurrentFloor()) * COST_EACH_FLOOR;
+        cost += Math.abs(Math.abs(target) - thisElevator.getCurrentFloor()) * COST_EACH_FLOOR;
         return cost;
     }
 
