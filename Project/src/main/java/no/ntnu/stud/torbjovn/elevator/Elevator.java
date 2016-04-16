@@ -5,11 +5,12 @@ import cz.adamh.utils.NativeUtils;
 import java.io.IOException;
 
 /**
+ * Class to represent and control the physical/simulated elevator
  * Created by marje on 22.03.2016.
  */
 public class Elevator {
     private InputListener inputListenerThread = new InputListener();
-    // TODO: do something to persist the current status in case of restart?
+
     public static final int NUM_FLOORS = 4,
             DIR_UP = 1,
             DIR_DOWN = -1,
@@ -18,6 +19,7 @@ public class Elevator {
             BUTTON_TYPE_CALL_UP = 0,
             BUTTON_TYPE_CALL_DOWN = 1,
             BUTTON_TYPE_COMMAND = 2,
+            // How long to keep the door open after arriving at a floor (in ms)
             WAIT_OPEN_DOOR = 1000;
 
     // A list of commands added by button presses from within the elevator cabin - these should have priority OVER commands received from network
@@ -56,8 +58,10 @@ public class Elevator {
         if (currFloor == 0) {
             System.out.println("Elevator is currently between floors, trying to find out where");
             findMyLocation();
-        } else
+        } else {
             System.out.println("Elevator is currently at floor " + currFloor);
+            elev_set_floor_indicator(currFloor);
+        }
 
         // Start listening for button events
         elevWorker.start();
@@ -80,17 +84,23 @@ public class Elevator {
     }
 
     public boolean asyncGoToFloor(int target) {
-        // TODO: waiting or return with error if busy?
-        while (busy) { // Don't move until the door is closed
-            try { Thread.sleep(10); } catch (InterruptedException ignored) {} // Sleep to save CPU resources
-        }
+        // TODO: wait or return with error if busy?
+//        while (busy) { // Don't move until the door is closed
+//            try { Thread.sleep(10); } catch (InterruptedException ignored) {} // Sleep to save CPU resources
+//        }
+        System.out.println("asyncGoToFloor called with target: " + target);
         if (target < 1 || target > NUM_FLOORS) {
             System.out.println("Invalid floor specified (" + target + "), ignoring");
             return false; // Invalid value, do nothing
         }
-        System.out.println("Initiating async goToFloor");
-        elevWorker.goToFloor(target);
-        System.out.println("asyncGoToFloor returned");
+        if (busy) {
+            internalCommands[target - 1] = true;
+            CommandDispatcher.addRequestToQueue(target, -1);
+        } else {
+            System.out.println("Initiating async goToFloor");
+            elevWorker.goToFloor(target);
+            System.out.println("asyncGoToFloor returned");
+        }
         return true;
     }
 
@@ -101,21 +111,21 @@ public class Elevator {
      * @return whether or not the job exists (and was handled)
      */
     private boolean handleRequestIfExists(int floor, int direction) {
-        if (floor >= NUM_FLOORS || floor < 0 || Math.abs(direction) > 1)
+        if (floor >= NUM_FLOORS || floor < 1 || Math.abs(direction) > 1)
             return false;
 
-        if ( internalCommands[floor]) {
-            internalCommands[floor] = false;
+        if ( internalCommands[floor - 1] ) {
+            internalCommands[floor - 1] = false;
             return true;
         }
 
         // 1-indexed with the sign indicating the direction
-        int targetWithDirection = (floor + 1) * direction;
+        int targetWithDirection = (floor) * direction;
         if (CommandHandler.jobExists(targetWithDirection)) {
             CommandHandler.signalJobCompleted(targetWithDirection); // Notify the others that we intend to stop here
             return true;
         }
-
+        System.out.println("No requests found at floor " + floor + ", direction: " + direction);
         return false;
     }
 
@@ -155,7 +165,7 @@ public class Elevator {
     }
 
     private class AsyncWorker extends Thread {
-        private int mTarget, lastFloor;
+        private int mTarget, mDirection, lastFloor;
         private boolean running = true;
 
         @Override
@@ -179,8 +189,9 @@ public class Elevator {
          *
          * @param target - the target floor to stop at
          */
-        private void goToFloorInternal(int target) {
+        private synchronized void goToFloorInternal(int target) {
             try {
+                System.out.println("goToFloorInternal called with target = " + target);
                 busy = true;
                 lastFloor = getCurrentFloor();
                 // If elevator is between floors (we don't know its current location), go down to the nearest one
@@ -194,12 +205,12 @@ public class Elevator {
                 if (difference == 0) return;
                 else if (difference > 0) {
                     // Target is higher than the current floor
-                    direction = DIR_UP;
+                    mDirection = DIR_UP;
                 } else {
                     // Target is lower than the current floor
-                    direction = DIR_DOWN;
+                    mDirection = DIR_DOWN;
                 }
-                setDirection(direction);
+                setDirection(mDirection);
 
                 outerLoop:
                 while (lastFloor != target) {
@@ -209,30 +220,34 @@ public class Elevator {
                         System.out.print(getCurrentFloor());
                         // TODO: for some reason it won't go to the top floor unless we started from the floor just below (internal commands)
                         try {
-                            Thread.sleep(50);
+                            Thread.sleep(20);
                         } catch (InterruptedException ignored) {}
                     }
                     lastFloor = getCurrentFloor();
                     elev_set_floor_indicator(lastFloor);
                     System.out.println("Current floor: " + lastFloor);
+                    if (lastFloor == target) break outerLoop;
                     // If request exists here, stop (and resume afterwards)
-                    if (handleRequestIfExists(lastFloor, direction)) {
+                    if (handleRequestIfExists(lastFloor, mDirection)) {
                         waitAtCurrentFloor(); // Open the door and wait before continuing
+                        setDirection(mDirection);
                     }
-                    if (lastFloor >= NUM_FLOORS || lastFloor <= 1) {
-                        System.out.println("Arrived at the top/bottom floor - not possible to go any further");
-                        break; // Stop if we have reached top or bottom for some reason
-                    }
+//                    if (lastFloor >= NUM_FLOORS || lastFloor <= 1) {
+//                        System.out.println("Arrived at the top/bottom floor - not possible to go any further");
+//                        break; // Stop if we have reached top or bottom for some reason
+//                    }
                 }
                 System.out.println("Arrived at target floor");
                 waitAtCurrentFloor();
             } finally { // The following should ALWAYS happen upon completion
                 mTarget = 0;
                 busy = false;
+                CommandDispatcher.recalculateJobCosts();
             }
         }
 
         private void waitAtCurrentFloor() {
+            System.out.println("waitAtCurrentFloor called");
             setDirection(DIR_STOP);
             markFloorDone(lastFloor);
             elev_set_door_open_lamp(1);
@@ -247,10 +262,11 @@ public class Elevator {
         }
 
         /**
-         * Update internalCommands and set turn off button lamp
+         * Update internalCommands, notify others and set turn off button lamp
          * @param floor
          */
         private void markFloorDone(int floor) {
+            CommandHandler.signalJobCompleted(floor * mDirection);
             internalCommands[floor -1] = false;
             elev_set_button_lamp(BUTTON_TYPE_COMMAND, floor - 1, 0);
         }

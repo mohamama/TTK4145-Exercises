@@ -37,6 +37,8 @@ public class CommandDispatcher extends Thread {
         if (currentFloor == 0) // Invalid floor
             return;
         for (Map.Entry<Integer, Long> job : activeJobs.entrySet()) {
+            // Job cost == -1 means that this is a cabin job, that should be processed immediately
+            if (job.getValue() == -1) continue;
             job.setValue(recalculateCost(job.getKey(), currentFloor));
         }
         synchronized (waitLock) {
