@@ -14,19 +14,22 @@ public class CommandDispatcher extends Thread {
     private static long sleepTimeout, nextWakeup;
     private static Map<Integer, Long> activeJobs = new HashMap<>(Elevator.NUM_FLOORS * 2);
 
-    // TODO: function to cancel a request (or should that be handled later?)
+    private Elevator thisElevator = Main.getElevator();
 
-    public static void addNotificationToQueue(int target, long delay) {
-        // TODO: check if running or shutting down before accepting new notification requests?
-        System.out.println("New NotificationRequest received");
+    public static void addRequestToQueue(int target, long delay) {
+        System.out.println("New request received, target: " + target + ", delay: " + delay);
         // Start timer if not running, update remaining time if the new request wants an earlier action
         // Step 2: Update the timer
         activeJobs.put(target, delay);
-        System.out.println("NotificationRequest successfully added to queue, waking dispatcher thread to schedule next wakeup: " + delay;
+        System.out.println("Request successfully added to queue, waking dispatcher thread to schedule next wakeup");
         synchronized (waitLock) {
             // Wake up the sleeping thread to adjust the sleeping period
             waitLock.notify();
         }
+    }
+
+    public static void cancelRequest(int target) {
+        activeJobs.remove(target);
     }
 
     private void processPendingJobs() {
@@ -65,7 +68,7 @@ public class CommandDispatcher extends Thread {
     }
 
     public void run() {
-        System.out.println("NotificationDispatcher thread started");
+        System.out.println("CommandDispatcher thread started");
         while(true) {
             processPendingJobs();
             synchronized (waitLock) {
