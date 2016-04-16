@@ -7,9 +7,6 @@ import org.apache.activemq.artemis.api.core.client.MessageHandler;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Class to handle received messages and further dispatch the necessary commands.
@@ -74,7 +71,7 @@ class CommandHandler implements MessageHandler {
                 processNewRequest(clientMessage.getIntProperty(PROPERTY_REQUEST_FLOOR), clientMessage.getStringProperty(PROPERTY_SOURCE_NODE));
                 break;
             case MESSAGE_TYPE_JOB_TAKEN:
-//                if (NODE_ID.equalsIgnoreCase(clientMessage.getStringProperty(PROPERTY_SOURCE_NODE))) break;
+                if (NODE_ID.equalsIgnoreCase(clientMessage.getStringProperty(PROPERTY_SOURCE_NODE))) break;
                 markRequestTaken(clientMessage.getIntProperty(PROPERTY_REQUEST_FLOOR));
                 break;
             case MESSAGE_TYPE_JOB_COMPLETE:
