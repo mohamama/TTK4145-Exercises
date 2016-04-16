@@ -32,11 +32,5 @@ public class Main {
             elevator.stopElevator();
             System.exit(1);
         }
-//        CommandHandler.sendRequest(3);
-//        CommandHandler.sendRequest(1);
-//        CommandHandler.sendRequest(4);
-//        CommandHandler.sendRequest(3, Elevator.DIR_DOWN);
-//        CommandHandler.sendRequest(1, Elevator.DIR_UP);
-//        CommandHandler.sendRequest(4, Elevator.DIR_DOWN);
     }
 }

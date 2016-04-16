@@ -17,7 +17,8 @@ public class Elevator {
             NUM_BUTTONS = 3,
             BUTTON_TYPE_CALL_UP = 0,
             BUTTON_TYPE_CALL_DOWN = 1,
-            BUTTON_TYPE_COMMAND = 2;
+            BUTTON_TYPE_COMMAND = 2,
+            WAIT_OPEN_DOOR = 1000;
 
     // A list of commands added by button presses from within the elevator cabin - these should have priority OVER commands received from network
     private static boolean[] internalCommands = new boolean[NUM_FLOORS];
@@ -26,8 +27,7 @@ public class Elevator {
             ET_Simulation = 1;
 
     private int direction = 0;
-    private boolean doorOpen, // TODO: implement handling of this - should be true when stopping at a floor (for a given amount of time), and when doorObstructed is true
-                    busy;
+    private boolean busy;
 
     private AsyncWorker elevWorker = new AsyncWorker();
 //    private int currentFloor = 0;
@@ -155,7 +155,7 @@ public class Elevator {
     }
 
     private class AsyncWorker extends Thread {
-        private int mTarget;
+        private int mTarget, lastFloor;
         private boolean running = true;
 
         @Override
@@ -164,7 +164,6 @@ public class Elevator {
             while (running) {
                 if (mTarget != 0) { // mTarget will be set back to 0 by the goToFloorInternal func before returning
                     goToFloorInternal(mTarget);
-                    mTarget = 0;
                 }
                 try {
                     sleep(10);
@@ -176,127 +175,150 @@ public class Elevator {
             mTarget = target;
         }
 
+        /** Actually do the work
+         *
+         * @param target - the target floor to stop at
+         */
         private void goToFloorInternal(int target) {
-            busy = true;
-            int lastFloor = getCurrentFloor();
-            // If elevator is between floors (we don't know its current location), go down to the nearest one
-            if (lastFloor == 0) {
-                findMyLocation();
+            try {
+                busy = true;
                 lastFloor = getCurrentFloor();
-            }
+                // If elevator is between floors (we don't know its current location), go down to the nearest one
+                if (lastFloor == 0) {
+                    findMyLocation();
+                    lastFloor = getCurrentFloor();
+                }
 
-            int difference = target - lastFloor;
+                int difference = target - lastFloor;
 
-            if (difference == 0) return;
-            else if (difference > 0) {
-                // Target is higher than the current floor
-                direction = DIR_UP;
-            } else {
-                // Target is lower than the current floor
-                direction = DIR_DOWN;
-            }
-            setDirection(direction);
+                if (difference == 0) return;
+                else if (difference > 0) {
+                    // Target is higher than the current floor
+                    direction = DIR_UP;
+                } else {
+                    // Target is lower than the current floor
+                    direction = DIR_DOWN;
+                }
+                setDirection(direction);
 
-            outerLoop:
-            while (lastFloor != target) {
-                while (getCurrentFloor() == 0 || getCurrentFloor() == lastFloor) {
-                    // Wait until reaching the next floor
-                    try {
-                        Thread.sleep(10);
-                    } catch (InterruptedException ignored) {
+                outerLoop:
+                while (lastFloor != target) {
+                    while (getCurrentFloor() == 0 || getCurrentFloor() == lastFloor) {
+                        // Wait until reaching the next floor
+                        try {
+                            Thread.sleep(10);
+                        } catch (InterruptedException ignored) {
+                        }
+                    }
+                    lastFloor = getCurrentFloor();
+                    elev_set_floor_indicator(lastFloor);
+                    System.out.println("Current floor: " + lastFloor);
+                    if (lastFloor >= NUM_FLOORS || lastFloor <= 1)
+                        break; // Stop if we have reached top or bottom for some reason
+                    // If request exists here, stop (and resume afterwards)
+                    if (handleRequestIfExists(lastFloor, direction)) {
+                        waitAtCurrentFloor(); // Open the door and wait before continuing
                     }
                 }
-                lastFloor = getCurrentFloor();
-                elev_set_floor_indicator(lastFloor);
-                System.out.println("Current floor: " + lastFloor);
-                if (lastFloor >= NUM_FLOORS || lastFloor <= 1)
-                    break; // Stop if we have reached top or bottom for some reason
-                // If request exists here, stop (and resume afterwards)
-                if (handleRequestIfExists(lastFloor, direction)) {
-                    // TODO: stop, and add another request to the original target (with the same priority as an internal command)
-                    break outerLoop;
-                }
+                System.out.println("Arrived at target floor");
+                waitAtCurrentFloor();
+            } finally { // The following should ALWAYS happen upon completion
+                mTarget = 0;
+                busy = false;
             }
+        }
+
+        private void waitAtCurrentFloor() {
             setDirection(DIR_STOP);
-            System.out.println("Arrived at target floor");
-            internalCommands[lastFloor -1] = false;
-            elev_set_button_lamp(BUTTON_TYPE_COMMAND, lastFloor - 1, 0);
-            busy = false;
+            markFloorDone(lastFloor);
+            elev_set_door_open_lamp(1);
+            long waitUntil = System.currentTimeMillis() + WAIT_OPEN_DOOR;
+            // Wait for people to get in and out
+            while (System.currentTimeMillis() < waitUntil || doorObstructed()) {
+                try {
+                    sleep(100L);
+                } catch (InterruptedException ignored) {}
+            }
+            elev_set_door_open_lamp(0);
+        }
+
+        /**
+         * Update internalCommands and set turn off button lamp
+         * @param floor
+         */
+        private void markFloorDone(int floor) {
+            internalCommands[floor -1] = false;
+            elev_set_button_lamp(BUTTON_TYPE_COMMAND, floor - 1, 0);
         }
     }
 
+    /**
+        This is a polling-based input driver to generate "interrupt events when buttons are pressed"
+        Different actions should be performed, depending on which button was pressed:
+         - Call buttons (outside the elevator - BUTTON_UP/DOWN_n in elev.c) should submit a command to the network
+         - Command buttons (inside) can directly call the goToFloor() function with the target floor as argument
+         - Stop button should stopElevator()
+    */
     private class InputListener extends Thread {
-        /*
-            This is a polling-based input driver to generate "interrupt events when buttons are pressed"
-            Different actions should be performed, depending on which button was pressed:
-             - Call buttons (outside the elevator - BUTTON_UP/DOWN_n in elev.c) should submit a command to the network
-             - Command buttons (inside) can directly call the goToFloor() function with the target floor as argument
-             - Stop button should stopElevator()
-        */
 
         // Variables for storing the previous status of buttons
         private int [][] buttonStatus = new int[NUM_FLOORS][NUM_BUTTONS];
         private int stopButtonStatus = 0;
-        private boolean obstruction_LastValue;
 
         @Override
         public void run() {
             super.run(); // TODO: include this or take out?
             int tempInt;
-            boolean tempBool;
 
             while(true) {
-                for (int floor = 0; floor < NUM_FLOORS; floor++) {
-                    for (int button = 0; button < NUM_BUTTONS; button++) {
-                        tempInt = elev_get_button_signal(button, floor);
-                        if (buttonStatus[floor][button] != tempInt) {
-                            if (tempInt == 1) {
-                                // Button was pressed - signal the appropriate handler - TODO
-                                switch (button) {
-                                    case BUTTON_TYPE_CALL_UP:
-                                        if (floor == (NUM_FLOORS -1)) {
-                                            System.out.println("This is the top floor - there is no button to call up...");
-                                        } else {
-                                            CommandHandler.sendRequest(floor + 1);
-                                            System.out.println("Request to go up from floor " + (floor+ 1) + " sent");
-                                        }
-                                        break;
-                                    case BUTTON_TYPE_CALL_DOWN:
-                                        if (floor == 0) {
-                                            System.out.println("This is the bottom floor - there is no button to call down...");
-                                        } else {
-                                            CommandHandler.sendRequest(-(floor + 1));
-                                            System.out.println("Request to go down from floor " + (floor + 1) + " sent");
-                                        }
-                                        break;
-                                    case BUTTON_TYPE_COMMAND:
-                                        if (floor != (getCurrentFloor() - 1))
-                                            handleFloorCommand(floor);
-                                        break;
+                try {
+                    for (int floor = 0; floor < NUM_FLOORS; floor++) {
+                        for (int button = 0; button < NUM_BUTTONS; button++) {
+                            tempInt = elev_get_button_signal(button, floor);
+                            if (buttonStatus[floor][button] != tempInt) {
+                                if (tempInt == 1) {
+                                    // Button was pressed - signal the appropriate handler
+                                    switch (button) {
+                                        case BUTTON_TYPE_CALL_UP:
+                                            if (floor == (NUM_FLOORS - 1)) {
+                                                System.out.println("This is the top floor - there is no button to call up...");
+                                            } else {
+                                                CommandHandler.sendRequest(floor + 1);
+                                                System.out.println("Request to go up from floor " + (floor + 1) + " sent");
+                                            }
+                                            break;
+                                        case BUTTON_TYPE_CALL_DOWN:
+                                            if (floor == 0) {
+                                                System.out.println("This is the bottom floor - there is no button to call down...");
+                                            } else {
+                                                CommandHandler.sendRequest(-(floor + 1));
+                                                System.out.println("Request to go down from floor " + (floor + 1) + " sent");
+                                            }
+                                            break;
+                                        case BUTTON_TYPE_COMMAND:
+                                            if (floor != (getCurrentFloor() - 1))
+                                                handleFloorCommand(floor);
+                                            break;
+                                    }
                                 }
+                                buttonStatus[floor][button] = tempInt;
                             }
-                            buttonStatus[floor][button] = tempInt;
                         }
                     }
-                }
-                tempInt = elev_get_stop_signal();
-                if (stopButtonStatus != tempInt) {
-                    if (tempInt == 1) {
-                        stopButtonPressed();
+                    tempInt = elev_get_stop_signal();
+                    if (stopButtonStatus != tempInt) {
+                        if (tempInt == 1) {
+                            stopButtonPressed();
+                        }
+                        stopButtonStatus = tempInt;
                     }
-                    stopButtonStatus = tempInt;
-                }
 
-                // TODO: does this function really need a callback, or should it be checked on demand?
-                tempBool = doorObstructed();
-                if (obstruction_LastValue != tempBool) {
-                    // TODO: callback?
-                    obstruction_LastValue = doorObstructed();
+                    try {
+                        Thread.sleep(10);
+                    } catch (InterruptedException ignored) {}
+                } catch (Exception e) { // Catch and display any (unhandled) exceptions that occurred within the polling loop to prevent it from stopping, and enable debugging
+                    e.printStackTrace();
                 }
-
-                try {
-                    Thread.sleep(10);
-                } catch (InterruptedException ignored) {}
             }
         }
     }
