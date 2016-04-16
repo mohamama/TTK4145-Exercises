@@ -43,16 +43,15 @@ public class Elevator {
 
     public Elevator() {
         if (!hw_init(ET_Comedi)) {
-
             System.out.println("Failed to initialize elevator hardware!");
             if(!hw_init(ET_Simulation)){
                 System.out.println("Failed to initialize elevator simulator!");
                 Runtime.getRuntime().exit(1);
-
             }
-            // TODO: enter "simulation mode" (for testing network handling etc.) if initialization failed
-        }
-        System.out.println("HW initialization done");
+            System.out.println("Simulator initialization done");
+        } else
+            System.out.println("HW initialization done");
+
         int currFloor = getCurrentFloor();
         if (currFloor == 0) {
             System.out.println("Elevator is currently between floors, trying to find out where");
@@ -82,7 +81,7 @@ public class Elevator {
 
     public boolean asyncGoToFloor(int target) {
         // TODO: waiting or return with error if busy?
-        while (doorOpen || busy) { // Don't move until the door is closed
+        while (busy) { // Don't move until the door is closed
             try { Thread.sleep(10); } catch (InterruptedException ignored) {} // Sleep to save CPU resources
         }
         if (target < 1 || target > NUM_FLOORS) {
@@ -105,8 +104,10 @@ public class Elevator {
         if (floor >= NUM_FLOORS || floor < 0 || Math.abs(direction) > 1)
             return false;
 
-        if ( internalCommands[floor])
+        if ( internalCommands[floor]) {
+            internalCommands[floor] = false;
             return true;
+        }
 
         // 1-indexed with the sign indicating the direction
         int targetWithDirection = (floor + 1) * direction;
@@ -145,9 +146,10 @@ public class Elevator {
     private void handleFloorCommand(int target){
         if(target >= NUM_FLOORS || target < 0)
             return ;
-
-        if (!asyncGoToFloor(target + 1))
+        int offsetTarget = target + 1;
+        if (!asyncGoToFloor(offsetTarget))
             return;
+        System.out.println("Received internal command to go to floor " + offsetTarget);
         elev_set_button_lamp(BUTTON_TYPE_COMMAND,target,1);
         internalCommands[target] = true;
     }
@@ -156,17 +158,11 @@ public class Elevator {
         private int mTarget;
         private boolean running = true;
 
-//        AsyncWorker(int target) {
-//            mTarget = target;
-//        }
-        // TODO: make this async-ier
-
-
         @Override
         public void run() {
             super.run();
             while (running) {
-                if (mTarget != 0) {
+                if (mTarget != 0) { // mTarget will be set back to 0 by the goToFloorInternal func before returning
                     goToFloorInternal(mTarget);
                     mTarget = 0;
                 }
