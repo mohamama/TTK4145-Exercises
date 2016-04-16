@@ -14,7 +14,7 @@ public class CommandDispatcher extends Thread {
     private static long sleepTimeout, nextWakeup;
     private static Map<Integer, Long> activeJobs = new HashMap<>(Elevator.NUM_FLOORS * 2);
 
-    private Elevator thisElevator = Main.getElevator();
+    private static Elevator thisElevator = Main.getElevator();
 
     public static void addRequestToQueue(int target, long delay) {
         System.out.println("New request received, target: " + target + ", delay: " + delay);
@@ -32,10 +32,36 @@ public class CommandDispatcher extends Thread {
         activeJobs.remove(target);
     }
 
+    public static void recalculateJobCosts() {
+        int currentFloor = thisElevator.getCurrentFloor();
+        if (currentFloor == 0) // Invalid floor
+            return;
+        for (Map.Entry<Integer, Long> job : activeJobs.entrySet()) {
+            job.setValue(recalculateCost(job.getKey(), currentFloor));
+        }
+        synchronized (waitLock) {
+            // Wake up the sleeping thread to adjust the sleeping period
+            waitLock.notify();
+        }
+    }
+
+    /**
+     * Function to recalculate cost based on the new position
+     * @param target
+     * @param currentPos
+     * @return - the new cost for the job
+     */
+    public static long recalculateCost(int target, int currentPos) {
+        long cost = Math.abs(Math.abs(target) - currentPos) * CommandHandler.COST_EACH_FLOOR;
+        // TODO: add more cost factors if needed
+        return cost;
+    }
+
     /**
      * Process the job that is currently first in line, and calculates the delay for the next
      */
     private void processNextJob() {
+        System.out.println("processNextJob called");
         Set<Map.Entry<Integer, Long>> jobSet = activeJobs.entrySet();
         Map.Entry<Integer, Long> earliestJob = null, nextJob = null;
         // Sort the pending jobs by delay period (cost) and return the two earliest (if existent)
@@ -44,6 +70,7 @@ public class CommandDispatcher extends Thread {
                 System.out.println("WARN: a job in the activeJobs set has a null value - this should never happen. Key: " + job.getKey());
                 continue;
             }
+            System.out.println("Job - target: " + job.getKey() + ", delay/cost: " + job.getValue());
             if (earliestJob == null || earliestJob.getValue() > job.getValue()) {
                 if (earliestJob != null) { // Bump the job that was earliest before down to 2nd place
                     nextJob = earliestJob;
@@ -53,6 +80,7 @@ public class CommandDispatcher extends Thread {
         }
 
         if (earliestJob != null && System.currentTimeMillis() >= nextWakeup) {
+            System.out.println("earliestJob - target: " + earliestJob.getKey() + ", value: " + earliestJob.getValue());
             dispatchJob(earliestJob.getKey());
         } else // We woke up too soon - go back to sleep
             nextJob = earliestJob;
