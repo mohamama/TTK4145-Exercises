@@ -88,13 +88,13 @@ class Networking {
 //            UDPBroadcastEndpointFactory udpBroadcastEndpointFactory = new UDPBroadcastEndpointFactory();
 //            udpBroadcastEndpointFactory.setGroupAddress(GROUP_BROADCAST_ADDRESS).setGroupPort(GROUP_BROADCAST_PORT);
 //            discoveryGroupConfiguration.setBroadcastEndpointFactory(new UDPBroadcastEndpointFactory().setGroupAddress(GROUP_BROADCAST_ADDRESS).setGroupPort(GROUP_BROADCAST_PORT));
-            serverLocator = ActiveMQClient.createServerLocatorWithHA(
-                    new DiscoveryGroupConfiguration().setBroadcastEndpointFactory(
-                            new UDPBroadcastEndpointFactory().setGroupAddress(GROUP_BROADCAST_ADDRESS).setGroupPort(GROUP_BROADCAST_PORT)
-                    )
-            );
+//            serverLocator = ActiveMQClient.createServerLocatorWithHA(
+//                    new DiscoveryGroupConfiguration().setBroadcastEndpointFactory(
+//                            new UDPBroadcastEndpointFactory().setGroupAddress(GROUP_BROADCAST_ADDRESS).setGroupPort(GROUP_BROADCAST_PORT)
+//                    )
+//            );
+            serverLocator = ActiveMQClient.createServerLocator(true, new TransportConfiguration(NettyConnectorFactory.class.getName(), connectionParams));
             nettyFactory = serverLocator.createSessionFactory();
-//                    ActiveMQClient.createServerLocator(true, new TransportConfiguration(NettyConnectorFactory.class.getName(), connectionParams))
             // TODO: uncomment once user is created in artemis broker configuration
             // Create a session with the supplied user name and password, the rest is left to the default values when calling createSession() without parameters
 //            artemisSession = nettyFactory.createSession(MESSAGING_USER, MESSAGING_PASS, false, true, true,
