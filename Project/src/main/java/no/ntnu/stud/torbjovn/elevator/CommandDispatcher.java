@@ -12,6 +12,7 @@ import java.util.Set;
 public class CommandDispatcher extends Thread {
     private static final Object waitLock = new Object();
     private static long sleepTimeout, nextWakeup;
+    private static final long SLEEP_TIMEOUT = 100;
     private static Map<Integer, Long> activeJobs = new HashMap<>(Elevator.NUM_FLOORS * 2);
 
     private static Elevator thisElevator = Main.getElevator();
@@ -28,6 +29,7 @@ public class CommandDispatcher extends Thread {
         }
     }
 
+    // TODO: is this not working?
     public static void cancelRequest(int target) {
         activeJobs.remove(target);
     }
@@ -38,7 +40,7 @@ public class CommandDispatcher extends Thread {
             return;
         for (Map.Entry<Integer, Long> job : activeJobs.entrySet()) {
             // Job cost == -1 means that this is a cabin job, that should be processed immediately
-            if (job.getValue() == -1) continue;
+            if (job.getValue() == -1 || job.getValue() == CommandHandler.JOB_TIMEOUT) continue;
             job.setValue(recalculateCost(job.getKey(), currentFloor));
         }
         synchronized (waitLock) {
@@ -56,14 +58,14 @@ public class CommandDispatcher extends Thread {
     public static long recalculateCost(int target, int currentPos) {
         long cost = Math.abs(Math.abs(target) - currentPos) * CommandHandler.COST_EACH_FLOOR;
         // TODO: add more cost factors if needed
-        return cost;
+        return cost * CommandHandler.MILLIS_PER_COST;
     }
 
     /**
      * Process the job that is currently first in line, and calculates the delay for the next
      */
     private void processNextJob() {
-        System.out.println("processNextJob called");
+//        System.out.println("processNextJob called");
         Set<Map.Entry<Integer, Long>> jobSet = activeJobs.entrySet();
         Map.Entry<Integer, Long> earliestJob = null, nextJob = null;
         // Sort the pending jobs by delay period (cost) and return the two earliest (if existent)
@@ -81,7 +83,7 @@ public class CommandDispatcher extends Thread {
             }
         }
 
-        if (earliestJob != null && System.currentTimeMillis() >= nextWakeup) {
+        if (earliestJob != null && System.currentTimeMillis() >= nextWakeup && !thisElevator.isBusy()) {
             System.out.println("earliestJob - target: " + earliestJob.getKey() + ", value: " + earliestJob.getValue());
             dispatchJob(earliestJob.getKey());
         } else // We woke up too soon - go back to sleep
@@ -89,7 +91,8 @@ public class CommandDispatcher extends Thread {
 
         // Step 2: calculate the next wait interval, verify that it's > 0, update sleepTimeout and return to main loop
         if (nextJob == null) {
-            sleepTimeout = 0; // If no more jobs are pending, go to sleep until a new task is added
+//            sleepTimeout = 0; // If no more jobs are pending, go to sleep until a new task is added
+            sleepTimeout = SLEEP_TIMEOUT;
             nextWakeup = 0;
         } else {
             sleepTimeout = nextJob.getValue();
@@ -108,10 +111,15 @@ public class CommandDispatcher extends Thread {
     public void run() {
         System.out.println("CommandDispatcher thread started");
         while(true) {
+            while(thisElevator.isBusy()) {
+                try {
+                    sleep(10);
+                } catch (InterruptedException ignored) {}
+            }
             processNextJob();
             synchronized (waitLock) {
                 try {
-                    System.out.println("Waiting for new notifications to process");
+//                    System.out.println("Waiting for new notifications to process");
                     waitLock.wait(sleepTimeout); // Initially (and when jobSchedule is empty) sleepTimeout is 0, so it will wait until notified
                 } catch (InterruptedException e) {
                     e.printStackTrace();
