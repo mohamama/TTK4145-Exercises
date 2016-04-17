@@ -36,7 +36,6 @@ public class Elevator {
     }
 
     private AsyncWorker elevWorker = new AsyncWorker();
-//    private int currentFloor = 0;
 
     static {
         try {
@@ -89,10 +88,6 @@ public class Elevator {
     }
 
     public boolean asyncGoToFloor(int target) {
-        // TODO: wait or return with error if busy?
-//        while (busy) { // Don't move until the door is closed
-//            try { Thread.sleep(10); } catch (InterruptedException ignored) {} // Sleep to save CPU resources
-//        }
         System.out.println("asyncGoToFloor called with target: " + target);
         if (target < 1 || target > NUM_FLOORS) {
             System.out.println("Invalid floor specified (" + target + "), ignoring");
@@ -135,7 +130,6 @@ public class Elevator {
     }
 
     private void stopButtonPressed() {
-        // TODO: implementation - should stop the elevator (interrupt ongoing goToFloor calls), mark it as busy and set the stop button light
         System.out.println("Stop button press registered");
         elev_set_stop_lamp(1);
         stopElevator();
@@ -241,10 +235,6 @@ public class Elevator {
                         waitAtCurrentFloor(); // Open the door and wait before continuing
                         setDirection(mDirection);
                     }
-//                    if (lastFloor >= NUM_FLOORS || lastFloor <= 1) {
-//                        System.out.println("Arrived at the top/bottom floor - not possible to go any further");
-//                        break; // Stop if we have reached top or bottom for some reason
-//                    }
                 }
                 if (!interrupted) {
                     System.out.println("Arrived at target floor");

@@ -15,7 +15,7 @@ import java.util.Map;
  */
 class CommandHandler implements MessageHandler {
     // Cost is converted to milliseconds
-    public static final int COST_NOT_HERE = 1, // Extra cost added for the elevators other than the one where the button was pressed
+    public static final int COST_NOT_HERE = 2, // Extra cost added for the elevators other than the one where the button was pressed
             COST_EACH_FLOOR = 3,
             COST_MOVING = 2,
             MILLIS_PER_COST = 200, // The factor to multiply the cost by to get the delay (ms)
@@ -68,8 +68,10 @@ class CommandHandler implements MessageHandler {
                 processNewRequest(clientMessage.getIntProperty(PROPERTY_REQUEST_FLOOR), clientMessage.getStringProperty(PROPERTY_SOURCE_NODE));
                 break;
             case MESSAGE_TYPE_JOB_TAKEN:
-                if (NODE_ID.equalsIgnoreCase(clientMessage.getStringProperty(PROPERTY_SOURCE_NODE))) break;
-                markRequestTaken(clientMessage.getIntProperty(PROPERTY_REQUEST_FLOOR));
+                if (NODE_ID.equalsIgnoreCase(clientMessage.getStringProperty(PROPERTY_SOURCE_NODE)))
+                    System.out.println("Request was sent by me, ignoring...");
+                else
+                    markRequestTaken(clientMessage.getIntProperty(PROPERTY_REQUEST_FLOOR));
                 break;
             case MESSAGE_TYPE_JOB_COMPLETE:
                 removeRequest(clientMessage.getIntProperty(PROPERTY_REQUEST_FLOOR));

@@ -13,8 +13,17 @@ public class CommandDispatcher extends Thread {
     private static final Object waitLock = new Object();
     private static long sleepTimeout, nextWakeup;
     private static final long SLEEP_TIMEOUT = 1000;
+
     private static Map<Integer, Long> activeJobs = new HashMap<>(Elevator.NUM_FLOORS * 2);
     private static Map.Entry<Integer, Long> currentJob = null;
+
+    public static boolean jobExists(int target) {
+        return activeJobs.containsKey(target);
+    }
+
+    public static Map<Integer, Long> getActiveJobs() {
+        return activeJobs;
+    }
 
     private static Elevator thisElevator = Main.getElevator();
 
