@@ -126,7 +126,7 @@ public class Elevator {
 
         // 1-indexed with the sign indicating the direction
         int targetWithDirection = (floor) * direction;
-        if (CommandHandler.jobExists(targetWithDirection)) {
+        if (CommandHandler.jobExists(targetWithDirection)) { // TODO: replace with CommandDispatcher.jobExists()
             CommandHandler.signalJobCompleted(targetWithDirection); // Notify the others that we intend to stop here
             return true;
         }

@@ -33,16 +33,12 @@ class CommandHandler implements MessageHandler {
 
     private Elevator thisElevator = Main.getElevator();
 
-    //TODO: use a map of jobs, mirroring all active jobs in the system
+    // TODO: this is duplicated with the one in CommandDispatcher
     private static Map<Integer, Long> activeJobs = new HashMap<>(Elevator.NUM_FLOORS * 2);
 
     public static boolean jobExists(int target) {
         return activeJobs.containsKey(target);
     }
-
-    // TODO: borrow timeout implementation from alarm, or delay scheduling of new jobs until the current one is completed
-//    private ScheduledThreadPoolExecutor waitingJobs = new ScheduledThreadPoolExecutor(1);
-//    private ScheduledFuture<?> currentJob = null; private int currentJobFloor = 0;
 
     /*
      * Algorithm outline:
@@ -79,8 +75,7 @@ class CommandHandler implements MessageHandler {
                 removeRequest(clientMessage.getIntProperty(PROPERTY_REQUEST_FLOOR));
                 break;
             default:
-                System.out.println("Got a message of unknown type, content follows:");
-                System.out.println("Got message: " + clientMessage.toString());
+                System.out.println("Got a message of unknown type, content follows:\n" + clientMessage.toString());
         }
         System.out.println("Got message from " + clientMessage.getStringProperty(PROPERTY_SOURCE_NODE) + ", type: " + clientMessage.getStringProperty(PROPERTY_MESSAGE_TYPE) + ", target floor: " + clientMessage.getIntProperty(PROPERTY_REQUEST_FLOOR));
         try {
@@ -91,65 +86,31 @@ class CommandHandler implements MessageHandler {
         }
     }
 
-//    private synchronized void updateSchedule() {
-//        if (activeJobs.isEmpty()) {
-//            System.out.println("No valid job found");
-//            return;
-//        }
-//        Long minimum = null;
-//        Integer target = null;
-//        // We can do it this way because the size of the set is relatively limited - ( (NUM_FLOORS - 1) * 2)
-//        for (Map.Entry<Integer, Long> job: activeJobs.entrySet()) {
-//            Long timeout = job.getValue();
-//            if (timeout == null) {
-//                timeout = calculateDelay(job.getKey(), "");
-//            }
-//            if (minimum == null || timeout < minimum) {
-//                minimum = timeout;
-//                target = job.getKey();
-//            }
-//        }
-//        if (minimum == null || (currentJob != null && minimum > currentJob.getDelay(TimeUnit.MILLISECONDS))) {
-////            minimum = calculateDelay(target, ""); // TODO: calculate cost for all pending requests in the system and take the lowest?
-//            return;
-//        }
-//        currentJob = waitingJobs.schedule(new ElevatorTask(target), minimum, TimeUnit.MILLISECONDS);
-//        activeJobs.remove(target);
-//        System.out.println("Submitted new request for execution in " + minimum + "ms, target: " + target);
-//    }
-
     private void markRequestTaken(int target) {
         // Step 1 - retrieve the job matching the target
         Long timeout = activeJobs.get(target);
         if (timeout == null) {
-            // Job doesn't exist in the queue - add it
-//            processNewRequest(target, "");
-//            timeout = activeJobs.get(target);
+            // Job doesn't exist in the queue, so it should be added - initialize variable to avoid any issues
             timeout = 0L;
         }
         // Step 2 - add JOB_TIMEOUT to the execution timer
         int waitingJobs = activeJobs.size();
         if (waitingJobs == 0) waitingJobs = 1;
-        timeout += JOB_TIMEOUT * waitingJobs;
+        timeout += JOB_TIMEOUT * waitingJobs; // TODO: remove '* waitingJobs', as they are no longer needed and will cause unnecessary long delays
         // Step 3 - save the job and reschedule timer if needed
-//        activeJobs.put(target, timeout);
-//        updateSchedule();
         CommandDispatcher.addRequestToQueue(target, timeout);
     }
 
     private void removeRequest(int target) {
         int button, floor;
-//        if (currentJob != null && currentJobFloor != target)
-//            currentJob.cancel(false);
-//        activeJobs.remove(target);
         CommandDispatcher.cancelRequest(target);
         if (target > 0)
             button = Elevator.BUTTON_TYPE_CALL_UP;
         else
             button = Elevator.BUTTON_TYPE_CALL_DOWN;
-        floor = Math.abs(target) - 1; // Convert from 1- to 0-indexed
+        // Convert from 1- to 0-indexed for the low-level functions
+        floor = Math.abs(target) - 1;
         thisElevator.elev_set_button_lamp(button, floor, 0);
-//        updateSchedule();
     }
 
     private void processNewRequest(int target, String source) {
@@ -159,18 +120,15 @@ class CommandHandler implements MessageHandler {
             return;
         }
         long cost = calculateDelay(target, source);
-        int button, floor;
-        // TODO: only include the following line if the elevator is at a location where it will make sense
-//        if (currentJob == null) cost = calculateDelay(target, source);
-//        activeJobs.put(target, cost);
         CommandDispatcher.addRequestToQueue(target, cost);
+        int button, floor;
         if (target > 0)
             button = Elevator.BUTTON_TYPE_CALL_UP;
         else
             button = Elevator.BUTTON_TYPE_CALL_DOWN;
-        floor = Math.abs(target) - 1; // Convert from 1- to 0-indexed
+        // Convert from 1- to 0-indexed for the low-level functions
+        floor = Math.abs(target) - 1;
         thisElevator.elev_set_button_lamp(button, floor, 1);
-//        updateSchedule();
     }
 
     private long calculateDelay(int target, String source) {
@@ -228,22 +186,4 @@ class CommandHandler implements MessageHandler {
         }
     }
 
-//    public class ElevatorTask implements Runnable {
-//        int target;
-//
-//        public ElevatorTask(int targetFloor) {
-//            target = targetFloor;
-//        }
-//
-//        @Override
-//        public void run() {
-//            signalTakeJob(target);
-//            currentJobFloor = target;
-//            thisElevator.goToFloor(Math.abs(target));
-//            signalJobCompleted(target);
-//            updateSchedule();
-//            currentJob = null;
-//            currentJobFloor = 0;
-//        }
-//    }
 }
