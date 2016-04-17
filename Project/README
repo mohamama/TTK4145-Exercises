@@ -1,29 +1,17 @@
-Alternative languages
+How to compile and run the project
+======
 
-Java:
-Pros/cons:
+-1: Compile and prepare the native C driver
+  -1.1: Navigate to the directory 'src/main/resources/driver' and run 'make'
+
+0: Make sure you have Maven installed (and of course JDK - I used OpenJDK 7)
+1: In this folder, run 'mvn package'
+2: Make sure the config file 'elevator.config' is up to date with the correct ip_address setting
+3: Run - 'java -jar target/ttk4145-proj-1.0-SNAPSHOT-jar-with-dependencies.jar' (this file includes all the required [3rd party] classes)
+
+This project is written in Java - here's why:
 + Apache ActiveMQ Artemis - https://activemq.apache.org/artemis/
   + Robust - supports persistent messages
   + Supports clustering and automatic discovery of new nodes/handling of lost nodes
   + Fast - low latency and high throughput
   + I already know how to use it
-  - None that I'm aware of so far
-
-C++:
-Pros/cons:
-+ Known language
-+ An ActiveMQ implementation/library exists - http://activemq.apache.org/cms/
-  - Needs to connect to existing ActiveMQ (can't be fully embedded without external dependencies)
-  - Have not yet used/tested this implementation
-
-Go:
-Pros/cons:
-+ Channels
-+ Made for multithreading and networking
-- No (very limited) experience with it so far
-- No ActiveMQ, will need to implement our own networking module
-
-PHP:
-Pros/cons:
-+ Because we were told not to use it (Aka BFUTW)
-- Basically everything else (see sites like phpsadness.com ...)
