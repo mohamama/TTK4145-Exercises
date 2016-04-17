@@ -31,6 +31,10 @@ public class Elevator {
     private int direction = 0;
     private boolean busy;
 
+    public boolean isBusy() {
+        return busy;
+    }
+
     private AsyncWorker elevWorker = new AsyncWorker();
 //    private int currentFloor = 0;
 
@@ -69,6 +73,7 @@ public class Elevator {
     }
 
     public void stopElevator() {
+        elevWorker.interrupt();
         setDirection(DIR_STOP);
     }
 
@@ -212,16 +217,20 @@ public class Elevator {
                 }
                 setDirection(mDirection);
 
+                boolean interrupted = false;
+
                 outerLoop:
-                while (lastFloor != target) {
-                    while (getCurrentFloor() == 0 || getCurrentFloor() == lastFloor) {
+                while (lastFloor != target && !interrupted) {
+                    while ((getCurrentFloor() == 0 || getCurrentFloor() == lastFloor)) {
                         // Wait until reaching the next floor
                         System.out.print('.');
                         System.out.print(getCurrentFloor());
-                        // TODO: for some reason it won't go to the top floor unless we started from the floor just below (internal commands)
                         try {
                             Thread.sleep(20);
-                        } catch (InterruptedException ignored) {}
+                        } catch (InterruptedException ie) {
+                            interrupted = true;
+                            break outerLoop;
+                        }
                     }
                     lastFloor = getCurrentFloor();
                     elev_set_floor_indicator(lastFloor);
@@ -237,8 +246,10 @@ public class Elevator {
 //                        break; // Stop if we have reached top or bottom for some reason
 //                    }
                 }
-                System.out.println("Arrived at target floor");
-                waitAtCurrentFloor();
+                if (!interrupted) {
+                    System.out.println("Arrived at target floor");
+                    waitAtCurrentFloor();
+                }
             } finally { // The following should ALWAYS happen upon completion
                 mTarget = 0;
                 busy = false;
