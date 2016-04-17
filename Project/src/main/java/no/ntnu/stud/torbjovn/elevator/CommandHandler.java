@@ -18,8 +18,8 @@ class CommandHandler implements MessageHandler {
     public static final int COST_NOT_HERE = 1, // Extra cost added for the elevators other than the one where the button was pressed
             COST_EACH_FLOOR = 3,
             COST_MOVING = 2,
-            MILLIS_PER_COST = 500, // The factor to multiply the cost by to get the delay (ms)
-            JOB_TIMEOUT = 20000; // If a job isn't marked as completed before this period expires, the next available elevator will take it.
+            MILLIS_PER_COST = 200, // The factor to multiply the cost by to get the delay (ms)
+            JOB_TIMEOUT = 15000; // If a job isn't marked as completed before this period expires, the next available elevator will take it.
 
     // Identifiers for different message types
     public static final String MESSAGE_TYPE_NEW_REQUEST = "request",
