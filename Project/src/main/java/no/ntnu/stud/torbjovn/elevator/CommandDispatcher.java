@@ -14,6 +14,7 @@ public class CommandDispatcher extends Thread {
     private static long sleepTimeout, nextWakeup;
     private static final long SLEEP_TIMEOUT = 1000;
     private static Map<Integer, Long> activeJobs = new HashMap<>(Elevator.NUM_FLOORS * 2);
+    private static Map.Entry<Integer, Long> currentJob = null;
 
     private static Elevator thisElevator = Main.getElevator();
 
@@ -69,8 +70,30 @@ public class CommandDispatcher extends Thread {
      */
     private synchronized void processNextJob() {
 //        System.out.println("processNextJob called");
+        if (currentJob != null && System.currentTimeMillis() >= nextWakeup && !thisElevator.isBusy()) {
+            System.out.println("earliestJob - target: " + currentJob.getKey() + ", value: " + currentJob.getValue());
+            dispatchJob(currentJob.getKey());
+        }
+//        else {// We woke up too soon - go back to sleep
+//            // Step 2: calculate the next wait interval, verify that it's > 0, update sleepTimeout and return to main loop
+//            if (currentJob == null) {
+////            sleepTimeout = 0; // If no more jobs are pending, go to sleep until a new task is added
+//                sleepTimeout = SLEEP_TIMEOUT;
+//                nextWakeup = 0;
+//            } else {
+//                sleepTimeout = nextJob.getValue();
+//                nextWakeup = System.currentTimeMillis() + sleepTimeout;
+//                System.out.println("Next wakeup scheduled in " + sleepTimeout + "ms");
+//                if (sleepTimeout < 1)
+//                    sleepTimeout = 1; // Safeguard against negative durations and accidentally waiting for a new notification when there are more left to process
+//            }
+//        }
+    }
+
+    private Map.Entry<Integer, Long> getFirstJob() {
         Set<Map.Entry<Integer, Long>> jobSet = activeJobs.entrySet();
-        Map.Entry<Integer, Long> earliestJob = null, nextJob = null;
+        Map.Entry<Integer, Long> earliestJob = null;
+//                , nextJob = null;
         // Sort the pending jobs by delay period (cost) and return the two earliest (if existent)
         for (Map.Entry<Integer, Long> job : jobSet) {
             if (job.getValue() == null) {
@@ -79,30 +102,13 @@ public class CommandDispatcher extends Thread {
             }
             System.out.println("Job - target: " + job.getKey() + ", delay/cost: " + job.getValue());
             if (earliestJob == null || earliestJob.getValue() > job.getValue()) {
-                if (earliestJob != null) { // Bump the job that was earliest before down to 2nd place
-                    nextJob = earliestJob;
-                }
+//                if (earliestJob != null) { // Bump the job that was earliest before down to 2nd place
+//                    nextJob = earliestJob;
+//                }
                 earliestJob = job;
             }
         }
-
-        if (earliestJob != null && System.currentTimeMillis() >= nextWakeup && !thisElevator.isBusy()) {
-            System.out.println("earliestJob - target: " + earliestJob.getKey() + ", value: " + earliestJob.getValue());
-            dispatchJob(earliestJob.getKey());
-        } else // We woke up too soon - go back to sleep
-            nextJob = earliestJob;
-
-        // Step 2: calculate the next wait interval, verify that it's > 0, update sleepTimeout and return to main loop
-        if (nextJob == null) {
-//            sleepTimeout = 0; // If no more jobs are pending, go to sleep until a new task is added
-            sleepTimeout = SLEEP_TIMEOUT;
-            nextWakeup = 0;
-        } else {
-            sleepTimeout = nextJob.getValue();
-            nextWakeup = System.currentTimeMillis() + sleepTimeout;
-            System.out.println("Next wakeup scheduled in " + sleepTimeout + "ms");
-            if (sleepTimeout < 1) sleepTimeout = 1; // Safeguard against negative durations and accidentally waiting for a new notification when there are more left to process
-        }
+        return earliestJob;
     }
 
     private void dispatchJob(int target) {
@@ -119,7 +125,14 @@ public class CommandDispatcher extends Thread {
                     sleep(10);
                 } catch (InterruptedException ignored) {}
             }
-            processNextJob();
+            currentJob = getFirstJob();
+            if (currentJob != null)
+                sleepTimeout = currentJob.getValue();
+            else
+                sleepTimeout = 0;
+            // Extra safeguard against negative timeouts
+            if (sleepTimeout < 0)
+                sleepTimeout = 1;
             synchronized (waitLock) {
                 try {
 //                    System.out.println("Waiting for new notifications to process");
@@ -127,6 +140,12 @@ public class CommandDispatcher extends Thread {
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 }
+            }
+            try {
+                if (currentJob.getKey() == getFirstJob().getKey())
+                    processNextJob();
+            } catch (NullPointerException npe) {
+                System.out.println("The scheduled job is no longer available");
             }
         }
 //        System.out.println("NotificationDispatcher thread shut down");
