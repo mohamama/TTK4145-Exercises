@@ -18,13 +18,7 @@ import java.util.Map;
  */
 class Networking {
     public static final String DESTINATION_ADDRESS = "elevatorQueue",
-                            MESSAGE_FIELD_TEXT = "messageText",
-                            MESSAGING_USER = "elevator",
-                            MESSAGING_PASS = "superSecret",
                             CONNECTOR_NAME = "netty-connector";
-    // UDP discovery settings
-    private static final String GROUP_BROADCAST_ADDRESS = "224.0.0.1";
-    private static final int GROUP_BROADCAST_PORT = 9876;
     // Networking objects
     private static String queueName;
     private static EmbeddedActiveMQ embeddedServer = new EmbeddedActiveMQ();
@@ -83,25 +77,11 @@ class Networking {
             connectionParams.put(TransportConstants.PORT_PROP_NAME, 61617);
             connectionParams.put(TransportConstants.HOST_PROP_NAME, "localhost");
 
-            // FIXME: create user/pass combination and use it
-//            DiscoveryGroupConfiguration discoveryGroupConfiguration = new DiscoveryGroupConfiguration();
-//            UDPBroadcastEndpointFactory udpBroadcastEndpointFactory = new UDPBroadcastEndpointFactory();
-//            udpBroadcastEndpointFactory.setGroupAddress(GROUP_BROADCAST_ADDRESS).setGroupPort(GROUP_BROADCAST_PORT);
-//            discoveryGroupConfiguration.setBroadcastEndpointFactory(new UDPBroadcastEndpointFactory().setGroupAddress(GROUP_BROADCAST_ADDRESS).setGroupPort(GROUP_BROADCAST_PORT));
-//            serverLocator = ActiveMQClient.createServerLocatorWithHA(
-//                    new DiscoveryGroupConfiguration().setBroadcastEndpointFactory(
-//                            new UDPBroadcastEndpointFactory().setGroupAddress(GROUP_BROADCAST_ADDRESS).setGroupPort(GROUP_BROADCAST_PORT)
-//                    )
-//            );
             serverLocator = ActiveMQClient.createServerLocator(true, new TransportConfiguration(NettyConnectorFactory.class.getName(), connectionParams));
             nettyFactory = serverLocator.createSessionFactory();
-            // TODO: uncomment once user is created in artemis broker configuration
-            // Create a session with the supplied user name and password, the rest is left to the default values when calling createSession() without parameters
-//            artemisSession = nettyFactory.createSession(MESSAGING_USER, MESSAGING_PASS, false, true, true,
-//                    nettyFactory.getServerLocator().isPreAcknowledge(), nettyFactory.getServerLocator().getAckBatchSize());
             artemisSession = nettyFactory.createSession();
             queueName = DESTINATION_ADDRESS + artemisSession.getSessionFactory().getConnection().getID().toString();
-            artemisSession.createQueue(DESTINATION_ADDRESS, queueName, true); // (String address, String queue, boolean durable) // TODO: does this need to be durable?
+            artemisSession.createQueue(DESTINATION_ADDRESS, queueName, true);
             messageConsumer = artemisSession.createConsumer(queueName);
             messageProducer = artemisSession.createProducer(DESTINATION_ADDRESS);
             messageConsumer.setMessageHandler(new CommandHandler());
@@ -135,10 +115,6 @@ class Networking {
             return false;
         }
         return true;
-    }
-
-    public static Message createTextMessage(String msgString) {
-        return artemisSession.createMessage(false).putStringProperty(MESSAGE_FIELD_TEXT, msgString);
     }
 
     public static Message createMessage() {

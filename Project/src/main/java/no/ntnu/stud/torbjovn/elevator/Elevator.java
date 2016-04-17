@@ -121,7 +121,7 @@ public class Elevator {
 
         // 1-indexed with the sign indicating the direction
         int targetWithDirection = (floor) * direction;
-        if (CommandHandler.jobExists(targetWithDirection)) { // TODO: replace with CommandDispatcher.jobExists()
+        if (CommandDispatcher.jobExists(targetWithDirection)) {
             CommandHandler.signalJobCompleted(targetWithDirection); // Notify the others that we intend to stop here
             return true;
         }
@@ -201,8 +201,10 @@ public class Elevator {
 
                 int difference = target - lastFloor;
 
-                if (difference == 0) return;
-                else if (difference > 0) {
+                if (difference == 0) {
+                    waitAtCurrentFloor();
+                    return;
+                } else if (difference > 0) {
                     // Target is higher than the current floor
                     mDirection = DIR_UP;
                 } else {

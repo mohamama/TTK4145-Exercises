@@ -12,7 +12,6 @@ import java.util.Set;
 public class CommandDispatcher extends Thread {
     private static final Object waitLock = new Object();
     private static long sleepTimeout, nextWakeup;
-    private static final long SLEEP_TIMEOUT = 1000;
 
     private static Map<Integer, Long> activeJobs = new HashMap<>(Elevator.NUM_FLOORS * 2);
     private static Map.Entry<Integer, Long> currentJob = null;
@@ -39,7 +38,6 @@ public class CommandDispatcher extends Thread {
         }
     }
 
-    // TODO: is this not working?
     public static void cancelRequest(int target) {
         activeJobs.remove(target);
         synchronized (waitLock) {
@@ -128,6 +126,7 @@ public class CommandDispatcher extends Thread {
             // Extra safeguard against negative timeouts
             if (sleepTimeout < 0)
                 sleepTimeout = 1;
+            nextWakeup = System.currentTimeMillis() + sleepTimeout;
             synchronized (waitLock) {
                 try {
                     System.out.println("Waiting for new notifications to process");
