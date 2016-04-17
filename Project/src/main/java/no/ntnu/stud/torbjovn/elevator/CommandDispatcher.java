@@ -12,7 +12,7 @@ import java.util.Set;
 public class CommandDispatcher extends Thread {
     private static final Object waitLock = new Object();
     private static long sleepTimeout, nextWakeup;
-    private static final long SLEEP_TIMEOUT = 100;
+    private static final long SLEEP_TIMEOUT = 1000;
     private static Map<Integer, Long> activeJobs = new HashMap<>(Elevator.NUM_FLOORS * 2);
 
     private static Elevator thisElevator = Main.getElevator();
@@ -25,13 +25,16 @@ public class CommandDispatcher extends Thread {
         System.out.println("Request successfully added to queue, waking dispatcher thread to schedule next wakeup");
         synchronized (waitLock) {
             // Wake up the sleeping thread to adjust the sleeping period
-            waitLock.notify();
+            waitLock.notifyAll();
         }
     }
 
     // TODO: is this not working?
     public static void cancelRequest(int target) {
         activeJobs.remove(target);
+        synchronized (waitLock) {
+            waitLock.notifyAll();
+        }
     }
 
     public static void recalculateJobCosts() {
@@ -45,7 +48,7 @@ public class CommandDispatcher extends Thread {
         }
         synchronized (waitLock) {
             // Wake up the sleeping thread to adjust the sleeping period
-            waitLock.notify();
+            waitLock.notifyAll();
         }
     }
 
@@ -64,7 +67,7 @@ public class CommandDispatcher extends Thread {
     /**
      * Process the job that is currently first in line, and calculates the delay for the next
      */
-    private void processNextJob() {
+    private synchronized void processNextJob() {
 //        System.out.println("processNextJob called");
         Set<Map.Entry<Integer, Long>> jobSet = activeJobs.entrySet();
         Map.Entry<Integer, Long> earliestJob = null, nextJob = null;
