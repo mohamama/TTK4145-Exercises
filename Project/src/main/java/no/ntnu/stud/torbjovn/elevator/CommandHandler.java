@@ -15,10 +15,11 @@ import java.util.Map;
  */
 class CommandHandler implements MessageHandler {
     // Cost is converted to milliseconds
-    public static final int COST_NOT_HERE = 10, // Extra cost added for the elevators other than the one where the button was pressed
-            COST_EACH_FLOOR = 100,
-            COST_MOVING = 100,
-            JOB_TIMEOUT = 10000; // If a job isn't marked as completed before this period expires, the next available elevator will take it.
+    public static final int COST_NOT_HERE = 1, // Extra cost added for the elevators other than the one where the button was pressed
+            COST_EACH_FLOOR = 3,
+            COST_MOVING = 2,
+            MILLIS_PER_COST = 500, // The factor to multiply the cost by to get the delay (ms)
+            JOB_TIMEOUT = 20000; // If a job isn't marked as completed before this period expires, the next available elevator will take it.
 
     // Identifiers for different message types
     public static final String MESSAGE_TYPE_NEW_REQUEST = "request",
@@ -101,7 +102,7 @@ class CommandHandler implements MessageHandler {
 //        for (Map.Entry<Integer, Long> job: activeJobs.entrySet()) {
 //            Long timeout = job.getValue();
 //            if (timeout == null) {
-//                timeout = calculateCost(job.getKey(), "");
+//                timeout = calculateDelay(job.getKey(), "");
 //            }
 //            if (minimum == null || timeout < minimum) {
 //                minimum = timeout;
@@ -109,7 +110,7 @@ class CommandHandler implements MessageHandler {
 //            }
 //        }
 //        if (minimum == null || (currentJob != null && minimum > currentJob.getDelay(TimeUnit.MILLISECONDS))) {
-////            minimum = calculateCost(target, ""); // TODO: calculate cost for all pending requests in the system and take the lowest?
+////            minimum = calculateDelay(target, ""); // TODO: calculate cost for all pending requests in the system and take the lowest?
 //            return;
 //        }
 //        currentJob = waitingJobs.schedule(new ElevatorTask(target), minimum, TimeUnit.MILLISECONDS);
@@ -157,10 +158,10 @@ class CommandHandler implements MessageHandler {
             signalJobCompleted(target);
             return;
         }
-        long cost = calculateCost(target, source);
+        long cost = calculateDelay(target, source);
         int button, floor;
         // TODO: only include the following line if the elevator is at a location where it will make sense
-//        if (currentJob == null) cost = calculateCost(target, source);
+//        if (currentJob == null) cost = calculateDelay(target, source);
 //        activeJobs.put(target, cost);
         CommandDispatcher.addRequestToQueue(target, cost);
         if (target > 0)
@@ -172,12 +173,12 @@ class CommandHandler implements MessageHandler {
 //        updateSchedule();
     }
 
-    private long calculateCost(int target, String source) {
+    private long calculateDelay(int target, String source) {
         long cost = 0;
         if (!NODE_ID.equalsIgnoreCase(source)) cost += COST_NOT_HERE;
         if (thisElevator.isMoving()) cost += COST_MOVING;
         cost += Math.abs(Math.abs(target) - thisElevator.getCurrentFloor()) * COST_EACH_FLOOR;
-        return cost;
+        return cost * MILLIS_PER_COST;
     }
 
     // TODO: this doesn't really belong in this class
@@ -213,6 +214,9 @@ class CommandHandler implements MessageHandler {
 
     public static void signalJobCompleted(int targetFloor) {
         if (Math.abs(targetFloor) > Elevator.NUM_FLOORS || targetFloor == 0) return;
+        // If at the top or bottom, there's only one call button - make double-sure we get the right one
+        if (targetFloor == -1) targetFloor = 1;
+        else if (targetFloor == Elevator.NUM_FLOORS) targetFloor = -Elevator.NUM_FLOORS;
         try {
             Message notification = Networking.createMessage()
                     .putStringProperty(PROPERTY_MESSAGE_TYPE, MESSAGE_TYPE_JOB_COMPLETE)
